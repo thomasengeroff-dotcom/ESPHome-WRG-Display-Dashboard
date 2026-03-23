@@ -1,0 +1,32 @@
+name: ESPHome Config Lint
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Validate YAML Config
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create dummy secrets.yaml
+        run: cp secrets_example.yaml secrets.yaml
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install ESPHome
+        run: pip install esphome==2025.12.7
+
+      - name: Verify Configuration
+        run: esphome config dashboard_main.yaml
