@@ -1,0 +1,33 @@
+name: Build ESPHome Firmware
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ESPHome Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create dummy secrets.yaml
+        run: cp secrets_example.yaml secrets.yaml
+
+      - name: ESPHome Builder
+        id: esphome-build
+        uses: esphome/build-action@v7.2.0
+        with:
+          yaml-file: dashboard_main.yaml
+          version: "2025.12.7"
+
+      - name: Upload ESPHome Binaries
+        uses: actions/upload-artifact@v6
+        with:
+          name: firmware-${{ steps.esphome-build.outputs.name }}
+          path: ${{ steps.esphome-build.outputs.name }}

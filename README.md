@@ -32,6 +32,7 @@ Das Projekt nutzt eine sehr spezifische Hardware-Kombination, um das RGB-Display
    - Auflösung: **320 x 820 Pixel** (Bar-Type Format)
    - Treiber-IC: **ST7701S**
    - Farbtiefe: RGB-666 (angesteuert als RGB565 in ESPHome)
+   - *Anschluss:* Wird über ein 40-Pin FPC-Kabel direkt auf das Qualia-Board gesteckt.
 3. **I2C-Expander (PCA9554 / TCA9554)**
    - Auf dem Adafruit Qualia Board verbaut (I2C-Adresse `0x3F`).
    - Da die 24-Bit RGB-Bilddaten nahezu alle GPIOs des ESP32-S3 belegen, wickelt dieser Expander die 3-Wire SPI Initialisierung (SCL, CS, RESET, SDA) sowie die Steuerung der Hintergrundbeleuchtung ab.
@@ -39,6 +40,7 @@ Das Projekt nutzt eine sehr spezifische Hardware-Kombination, um das RGB-Display
    - Ebenfalls am I2C-Bus angeschlossen, ermöglicht kapazitives Touch auf dem kompletten Display. Das Polling wird asynchron in ESPHome ausgeführt, ohne den SPI-Init-Vorgang des Displays zu blockieren.
 5. **BME680 Umweltsensor**
    - Angeschlossen über den standardmäßigen I2C-Bus (SDA: GPIO8, SCL: GPIO18) für genaue Temperatur-, Feuchte- und IAQ-Messungen.
+   - *Tipp:* Das Qualia-Board besitzt einen **Stemma QT/Qwiic-Anschluss**, sodass der BME680 ganz ohne Löten oder Breadboard direkt per JST-SH Kabel angesteckt werden kann!
 
 ## ⚙️ Wie es mit ESPHome funktioniert (Besonderheiten)
 
@@ -57,17 +59,19 @@ Die Ansteuerung eines ST7701S RGB-Displays mit einem Adafruit Qualia Board unter
 - `dashboard_main.yaml` - Die ESPHome Hauptkonfiguration (Board-Settings, WLAN, I2C, Sensoren, Display-Definition, OTA, Time).
 - `dashboard_ui.yaml` - Die reine LVGL Benutzeroberfläche (Seiten `page_main` & `page_wrg_1`, Fonts, Layouts).
 - `qualia_init.h` - Der C++ Code für die 3-Wire SPI Initialisierung des ST7701S via PCA9554 I2C-Expander.
-- `secrets.yaml` - (Git-ignored) WLAN- und Passwortkonfigurationen.
+- `secrets - Example.yaml` - Vorlage für die WLAN- und Passwortkonfigurationen.
 - `docs/` - Datasheets, Timings, Layout-Vorgaben und Python-/Hex-Beispielcodes aus der Entwicklungs- und Prototyping-Phase der Displayansteuerung.
 
 ## 🚀 Setup & Installation
 
-1. Stelle sicher, dass du eine `secrets.yaml` mit deinen WLAN-Daten anlegst (z.B. `wifi_ssid: ...` und `wifi_password: ...`).
+1. Kopiere die Datei `secrets - Example.yaml` zu `secrets.yaml` und trage dort deine WLAN-Zugangsdaten ein.
 2. Passe in der `dashboard_main.yaml` unter `substitutions:` die Namen deiner Home Assistant Entities der echten Wohnraumlüftung an, insbesondere `target_ventilation_device`, `target_co2_sensor` usw.
-3. Kompiliere und installiere die Firmware über USB (damit UART/JTAG korrekt eingebunden wird):
+   - *Hinweis:* Die PID-Status-Sensoren (`binary_sensor.wrg_pid_co2_active` und `wrg_pid_hum_active`) sind aktuell in der Zeile 146 im YAML hartkodiert und sollten von dir ebenfalls auf deine entsprechenden Sensoren gepasst werden.
+3. Schließe das Display per FPC-Flachbandkabel an das Adafruit Qualia Board an und verbinde den BME680 (optional) über den Stemma QT Port.
+4. Kompiliere und installiere die Firmware über USB (damit UART/JTAG korrekt eingebunden wird):
 
    ```bash
    esphome run dashboard_main.yaml
    ```
 
-4. Nach dem erfolgreichen ersten Flashen können zukünftige Updates einfach via OTA-Update über dein lokales Netzwerk durchgeführt werden.
+5. Nach dem erfolgreichen ersten Flashen können zukünftige Updates einfach via OTA-Update über dein lokales Netzwerk durchgeführt werden.
