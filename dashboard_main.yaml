@@ -1,0 +1,265 @@
+substitutions:
+  device_name: "wrg-dashboard"
+  friendly_name: "WRG Dashboard"
+  # Diese Substitutions machen es einfach, das gezeigte Lüftungsgerät in ESPHome zu ändern
+  # (Konfigurierbar über das ESPHome Dashboard vor dem Kompilieren)
+  target_ventilation_device: "wrg_lueftung_1"
+  target_co2_sensor: "sensor.scd41_co2"
+  target_humidity_sensor: "sensor.scd41_humidity"
+  target_temp_sensor: "sensor.scd41_temperature"
+  target_pressure_sensor: "sensor.pressure"
+  target_radar_sensor: "binary_sensor.radar_presence"
+  target_fan: "fan.luefter"
+  target_mode_select: "select.luefter_modus"
+  target_fan_intensity: "number.lufter_intensitat"
+
+esp32:
+  board: esp32-s3-devkitc-1 # Standard S3 DevKit Profile
+  framework:
+    type: esp-idf
+    version: recommended
+
+# Wichtig für den S3, damit der USB-Port nach dem Flashen aktiv bleibt:
+logger:
+  hardware_uart: USB_SERIAL_JTAG
+  level: DEBUG
+
+
+# PSRAM ist zwingend erforderlich für RGB Displays & LVGL
+psram:
+  mode: octal
+
+# ---------------------------------------------------------
+# WIFI CONNECTIVITY
+# ---------------------------------------------------------
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  min_auth_mode: WPA2
+
+  # Fallback Hotspot:
+  # If the configured WiFi is not reachable within 1 minute, the device
+  # opens its own Hotspot (Captive Portal) to allow reconfiguration.
+  ap:
+    ssid: "${device_name} Hotspot"
+    password: !secret appw
+
+api:
+
+
+ota:
+  - platform: esphome
+
+# ---------------------------------------------------------
+# Zeit synchronisation für den Mainscreen
+# ---------------------------------------------------------
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "Europe/Berlin"
+
+# ---------------------------------------------------------
+# BME680 Sensor & PCA9554 (Lokal am Dashboard)
+# ---------------------------------------------------------
+i2c:
+  id: i2c_bus
+  sda: GPIO8 # Adafruit Qualia I2C SDA
+  scl: GPIO18 # Adafruit Qualia I2C SCL
+  scan: true
+  frequency: 400kHz
+
+# Custom C++ Init-Routine für das Display über den PCA9554 (I2C)
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  includes:
+    - qualia_init.h
+
+  on_boot:
+    priority: 800
+    then:
+      - lambda: |-
+          auto my_init = new esphome::qualia::QualiaDisplayInit();
+          // Set the I2C ID and the correct address for the Qualia PCA9554
+          my_init->set_i2c_bus(id(i2c_bus));
+          my_init->set_i2c_address(0x3F);
+          my_init->setup();
+
+bme68x_bsec2_i2c:
+  address: 0x77 # Adafruit BME680 Standard
+  i2c_id: i2c_bus
+  model: bme680
+
+sensor:
+  - platform: bme68x_bsec2
+    temperature:
+      name: "Dashboard Temperatur"
+      id: local_temp
+    humidity:
+      name: "Dashboard Feuchtigkeit"
+      id: local_hum
+    pressure:
+      name: "Dashboard Luftdruck"
+      id: local_pres
+    iaq:
+      name: "Dashboard IAQ"
+      id: local_iaq
+
+# ---------------------------------------------------------
+# Home Assistant Sensoren (Daten vom Lüftungsgerät)
+# ---------------------------------------------------------
+text_sensor:
+  - platform: homeassistant
+    id: ha_vent_mode
+    entity_id: ${target_mode_select}
+
+  - platform: homeassistant
+    id: ha_vent_intensity
+    entity_id: ${target_fan_intensity}
+
+  - platform: homeassistant
+    id: ha_vent_co2
+    entity_id: ${target_co2_sensor}
+
+  - platform: homeassistant
+    id: ha_vent_humidity
+    entity_id: ${target_humidity_sensor}
+
+  - platform: homeassistant
+    id: ha_vent_temp
+    entity_id: ${target_temp_sensor}
+
+  - platform: homeassistant
+    id: ha_vent_pressure
+    entity_id: ${target_pressure_sensor}
+
+binary_sensor:
+  - platform: homeassistant
+    id: ha_vent_radar
+    entity_id: ${target_radar_sensor}
+
+  # Hinweis: Die Erkennung ob der PID aktuell _regelt_, lässt sich am besten
+  # über den "pid_demand" oder die Differenz zum Grenzwert (z.B. auto_co2_threshold) abbilden.
+  # Wir importieren hier beispielhaft einen (fiktiven) PID Status Sensor, den du in HA anlegen müsstest.
+  - platform: homeassistant
+    id: ha_pid_co2_active
+    entity_id: binary_sensor.wrg_pid_co2_active
+
+  - platform: homeassistant
+    id: ha_pid_hum_active
+    entity_id: binary_sensor.wrg_pid_hum_active
+
+# ---------------------------------------------------------
+# Display & Touch Konfiguration
+# ---------------------------------------------------------
+# Adafruit Qualia nutzt intern einen I2C Expander (TCA9554) für das SPI Init
+# des ST7701S. Da ESPHome das Bitbanging über I2C-Expander für SPI-TFTs noch
+# nicht nativ unterstützt, wird hier standard RGB-TFT deklariert.
+# Für einen realen Build auf dem Qualia bedarf es eines Custom C++ Init-Scripts!
+display:
+  - platform: rpi_dpi_rgb
+    id: tft_display
+    color_order: RGB
+    dimensions:
+      width: 320
+      height: 820
+    # Exact Pins for Adafruit Qualia ESP32-S3 RGB-666 Display
+    pclk_frequency: 16MHz
+    pclk_inverted: true
+    hsync_pulse_width: 3
+    hsync_back_porch: 251
+    hsync_front_porch: 150
+    vsync_pulse_width: 6
+    vsync_back_porch: 90
+    vsync_front_porch: 100
+    de_pin: GPIO2
+    hsync_pin: GPIO41
+    vsync_pin: GPIO42
+    pclk_pin: GPIO1
+    data_pins:
+      blue: [GPIO40, GPIO39, GPIO38, GPIO0, GPIO45]
+      green: [GPIO48, GPIO47, GPIO21, GPIO14, GPIO13, GPIO12]
+      red: [GPIO11, GPIO10, GPIO9, GPIO46, GPIO3]
+
+touchscreen:
+  - platform: ft63x6
+    id: my_touch
+    i2c_id: i2c_bus
+    # We purposefully exclude the interrupt_pin because it resides on the PCA9554. 
+    # ESPHome will poll the touch controller over I2C, avoiding any I2C bus contention 
+    # with the custom qualia_init.h C++ display initialization routine.
+
+# Bind the LVGL UI
+packages:
+  ui: !include dashboard_ui.yaml
+
+# ---------------------------------------------------------
+# UI Update Loop (Aktualisiert die LVGL Labels)
+# ---------------------------------------------------------
+interval:
+  - interval: 1s
+    then:
+      - lvgl.label.update:
+          id: label_time
+          text:
+            format: "%02d:%02d"
+            args: ["id(sntp_time).now().hour", "id(sntp_time).now().minute"]
+      - lvgl.label.update:
+          id: label_date
+          text:
+            format: "%02d. %02d."
+            args:
+              ["id(sntp_time).now().day_of_month", "id(sntp_time).now().month"]
+      - lvgl.label.update:
+          id: label_local_temp
+          text:
+            format: "%.1f °C"
+            args: ["id(local_temp).state"]
+      - lvgl.label.update:
+          id: label_local_hum
+          text:
+            format: "%.1f %%"
+            args: ["id(local_hum).state"]
+      - lvgl.label.update:
+          id: label_local_iaq
+          text:
+            format: "%.0f"
+            args: ["id(local_iaq).state"]
+      - lvgl.label.update:
+          id: label_vent_mode
+          text:
+            format: "Modus:\n%s"
+            args: ["id(ha_vent_mode).state.c_str()"]
+      - lvgl.label.update:
+          id: label_vent_intensity
+          text:
+            format: "Lüfter:\n%.0f / 10"
+            args: ["id(ha_vent_intensity).state"]
+      - lvgl.label.update:
+          id: label_vent_temp
+          text:
+            format: "Temp:\n%.1f °C"
+            args: ["id(ha_vent_temp).state"]
+      - lvgl.label.update:
+          id: label_vent_co2
+          text:
+            format: "CO2:\n%.0f ppm"
+            args: ["id(ha_vent_co2).state"]
+      - lvgl.label.update:
+          id: label_vent_humidity
+          text:
+            format: "Feuchte:\n%.1f %%"
+            args: ["id(ha_vent_humidity).state"]
+      - lvgl.label.update:
+          id: label_vent_radar
+          text:
+            format: "Radar:\n%s"
+            args: ['id(ha_vent_radar).state ? "Ja" : "Nein"']
+      - lvgl.label.update:
+          id: label_pid_status
+          text:
+            format: "Automatik aktiv:\n%s"
+            args:
+              [
+                'id(ha_pid_co2_active).state ? "CO2 Regler" : (id(ha_pid_hum_active).state ? "Feuchteschutz" : "Idle (Kein Eingriff)")',
+              ]

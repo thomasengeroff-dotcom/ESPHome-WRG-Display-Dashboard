@@ -1,0 +1,211 @@
+# ---------------------------------------------------------
+# LVGL User Interface Configuration
+# ---------------------------------------------------------
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_time
+    size: 64
+  - file: "gfonts://Roboto"
+    id: font_date
+    size: 24
+  - file: "gfonts://Roboto"
+    id: font_large
+    size: 28
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 16
+
+lvgl:
+  id: my_lvgl
+  log_level: WARN
+
+
+  pages:
+    - id: page_main
+      widgets:
+        - obj:
+            width: 100%
+            height: 100%
+            on_click:
+              - lvgl.page.next:
+                  animation: MOVE_LEFT
+                  time: 300ms
+
+            widgets:
+              # Linke Hälfte: Uhrzeit & Datum
+              - obj:
+                  align: LEFT_MID
+                  width: 50%
+                  height: 100%
+                  widgets:
+                    - label:
+                        id: label_time
+                        align: CENTER
+                        y: -20
+                        text: "12:00"
+                        text_font: font_time
+                    - label:
+                        id: label_date
+                        align: CENTER
+                        y: 35
+                        text: "01. Jan."
+                        text_font: font_date
+
+              # Rechte Hälfte: BME680 Sensorwerte
+              - obj:
+                  align: RIGHT_MID
+                  width: 50%
+                  height: 100%
+                  layout:
+                    type: FLEX
+                    flex_flow: COLUMN
+                    flex_align_main: SPACE_EVENLY
+                    flex_align_cross: CENTER
+                  widgets:
+                    - obj:
+                        width: 90%
+                        height: 25%
+                        bg_color: 0x1e1e1e
+                        radius: 10
+                        widgets:
+                          - label:
+                              text: "Temp:"
+                              x: 10
+                              align: LEFT_MID
+                              text_color: 0x9ca3af
+                              text_font: font_small
+                          - label:
+                              id: label_local_temp
+                              text: "-- °C"
+                              x: -10
+                              align: RIGHT_MID
+                              text_color: 0xffffff
+                              text_font: font_large
+                    
+                    - obj:
+                        width: 90%
+                        height: 25%
+                        bg_color: 0x1e1e1e
+                        radius: 10
+                        widgets:
+                          - label:
+                              text: "Feuchte:"
+                              x: 10
+                              align: LEFT_MID
+                              text_color: 0x9ca3af
+                              text_font: font_small
+                          - label:
+                              id: label_local_hum
+                              text: "-- %"
+                              x: -10
+                              align: RIGHT_MID
+                              text_color: 0x03a9f4
+                              text_font: font_large
+
+                    - obj:
+                        width: 90%
+                        height: 25%
+                        bg_color: 0x1e1e1e
+                        radius: 10
+                        widgets:
+                          - label:
+                              text: "IAQ:"
+                              x: 10
+                              align: LEFT_MID
+                              text_color: 0x9ca3af
+                              text_font: font_small
+                          - label:
+                              id: label_local_iaq
+                              text: "--"
+                              x: -10
+                              align: RIGHT_MID
+                              text_color: 0xbb86fc
+                              text_font: font_large
+
+    - id: page_wrg_1
+      widgets:
+        - obj:
+            width: 100%
+            height: 100%
+            on_click:
+              - lvgl.page.previous:
+                  animation: MOVE_RIGHT
+                  time: 300ms
+
+            widgets:
+              - label:
+                  text: "Wohnraumlüftung Status"
+                  align: TOP_MID
+                  y: 10
+                  text_font: font_large
+                  text_color: 0x03dac6
+              
+              - obj:
+                  align: CENTER
+                  y: 15
+                  width: 95%
+                  height: 80%
+                  bg_opa: 0  # Transparent
+                  layout:
+                    type: GRID
+                    grid_columns: [150, 150] # 2 Spalten
+                    grid_rows: [160, 160, 160, 160] # 4 Zeilen
+                  
+                  widgets:
+                    - label:
+                        id: label_vent_mode
+                        text: "Modus:\\n--"
+                        grid_cell_row_pos: 0
+                        grid_cell_column_pos: 0
+                        align: CENTER
+                        text_font: font_small
+
+                    - label:
+                        id: label_vent_intensity
+                        text: "Lüfter:\\n-- / 10"
+                        grid_cell_row_pos: 0
+                        grid_cell_column_pos: 1
+                        align: CENTER
+                        text_font: font_small
+
+                    - label:
+                        id: label_vent_temp
+                        text: "Temp:\\n-- °C"
+                        grid_cell_row_pos: 1
+                        grid_cell_column_pos: 0
+                        align: CENTER
+                        text_color: 0xcf6679
+
+                    - label:
+                        id: label_vent_co2
+                        text: "CO2:\\n-- ppm"
+                        grid_cell_row_pos: 1
+                        grid_cell_column_pos: 1
+                        align: CENTER
+                        text_color: 0xbb86fc
+
+                    - label:
+                        id: label_vent_humidity
+                        text: "Feuchte:\\n-- %"
+                        grid_cell_row_pos: 2
+                        grid_cell_column_pos: 0
+                        align: CENTER
+                        text_color: 0x03a9f4
+                              
+                    - label:
+                        id: label_vent_radar
+                        text: "Radar:\\n--"
+                        grid_cell_row_pos: 2
+                        grid_cell_column_pos: 1
+                        align: CENTER
+                        text_color: 0xffffff
+
+                    - label:
+                        id: label_pid_status
+                        text: "Automatik aktiv:\\nIdle"
+                        grid_cell_row_pos: 3
+                        grid_cell_column_pos: 0
+                        grid_cell_column_span: 2
+                        align: CENTER
+                        text_color: 0x9ca3af
