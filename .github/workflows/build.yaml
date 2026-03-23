@@ -27,7 +27,7 @@ jobs:
           version: "2025.12.7"
 
       - name: Upload ESPHome Binaries
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: firmware-${{ steps.esphome-build.outputs.name }}
           path: ${{ steps.esphome-build.outputs.name }}
