@@ -3,15 +3,21 @@ substitutions:
   friendly_name: "WRG Dashboard"
   # Diese Substitutions machen es einfach, das gezeigte Lüftungsgerät in ESPHome zu ändern
   # (Konfigurierbar über das ESPHome Dashboard vor dem Kompilieren)
-  target_ventilation_device: "wrg_lueftung_1"
-  target_co2_sensor: "sensor.scd41_co2"
-  target_humidity_sensor: "sensor.scd41_humidity"
-  target_temp_sensor: "sensor.scd41_temperature"
-  target_pressure_sensor: "sensor.pressure"
-  target_radar_sensor: "binary_sensor.radar_presence"
-  target_fan: "fan.luefter"
-  target_mode_select: "select.luefter_modus"
-  target_fan_intensity: "number.lufter_intensitat"
+  target_ventilation_device: "ESP-WRG-Lüftung 859670"
+  target_co2_sensor: "sensor.espwrglueftung_effektiver_co2_wert"
+  target_humidity_sensor: "sensor.espwrglueftung_scd41_luftfeuchtigkeit"
+  target_temp_sensor: "sensor.espwrglueftung_bmp390_temperatur"
+  target_pressure_sensor: "sensor.espwrglueftung_bmp390_luftdruck"
+  target_radar_sensor: "binary_sensor.espwrglueftung_radar_presence"
+  target_fan: "fan.espwrglueftung_luefter" # Placeholder if fan is added, but using select/number for controls
+  target_mode_select: "select.espwrglueftung_lueftermodus"
+  target_fan_intensity: "number.espwrglueftung_lufter_intensitat"
+  # Diagnostik Entitäten
+  target_iaq_sensor: "sensor.espwrglueftung_bme680_iaq_index"
+  target_efficiency_sensor: "sensor.espwrglueftung_warmeruckgewinnung_effizienz"
+  target_zuluft_temp: "sensor.espwrglueftung_temperatur_zuluft_innen"
+  target_abluft_temp: "sensor.espwrglueftung_temperatur_abluft_aussen"
+  target_filter_alarm: "binary_sensor.espwrglueftung_filterwechsel_alarm"
 
 esp32:
   board: esp32-s3-devkitc-1 # Standard S3 DevKit Profile
@@ -45,7 +51,8 @@ wifi:
     password: !secret appw
 
 api:
-
+  encryption:
+    key: !secret api_encryption_key
 
 ota:
   - platform: esphome
@@ -105,6 +112,35 @@ sensor:
       name: "Dashboard IAQ"
       id: local_iaq
 
+  - platform: homeassistant
+    id: ha_iaq
+    entity_id: ${target_iaq_sensor}
+  - platform: homeassistant
+    id: ha_efficiency
+    entity_id: ${target_efficiency_sensor}
+  - platform: homeassistant
+    id: ha_zuluft_temp
+    entity_id: ${target_zuluft_temp}
+  - platform: homeassistant
+    id: ha_abluft_temp
+    entity_id: ${target_abluft_temp}
+
+  - platform: homeassistant
+    id: ha_vent_intensity
+    entity_id: ${target_fan_intensity}
+  - platform: homeassistant
+    id: ha_vent_co2
+    entity_id: ${target_co2_sensor}
+  - platform: homeassistant
+    id: ha_vent_humidity
+    entity_id: ${target_humidity_sensor}
+  - platform: homeassistant
+    id: ha_vent_temp
+    entity_id: ${target_temp_sensor}
+  - platform: homeassistant
+    id: ha_vent_pressure
+    entity_id: ${target_pressure_sensor}
+
 # ---------------------------------------------------------
 # Home Assistant Sensoren (Daten vom Lüftungsgerät)
 # ---------------------------------------------------------
@@ -112,26 +148,6 @@ text_sensor:
   - platform: homeassistant
     id: ha_vent_mode
     entity_id: ${target_mode_select}
-
-  - platform: homeassistant
-    id: ha_vent_intensity
-    entity_id: ${target_fan_intensity}
-
-  - platform: homeassistant
-    id: ha_vent_co2
-    entity_id: ${target_co2_sensor}
-
-  - platform: homeassistant
-    id: ha_vent_humidity
-    entity_id: ${target_humidity_sensor}
-
-  - platform: homeassistant
-    id: ha_vent_temp
-    entity_id: ${target_temp_sensor}
-
-  - platform: homeassistant
-    id: ha_vent_pressure
-    entity_id: ${target_pressure_sensor}
 
 binary_sensor:
   - platform: homeassistant
@@ -149,6 +165,10 @@ binary_sensor:
     id: ha_pid_hum_active
     entity_id: binary_sensor.wrg_pid_hum_active
 
+  - platform: homeassistant
+    id: ha_filter_alarm
+    entity_id: ${target_filter_alarm}
+
 # ---------------------------------------------------------
 # Display & Touch Konfiguration
 # ---------------------------------------------------------
@@ -159,6 +179,7 @@ binary_sensor:
 display:
   - platform: rpi_dpi_rgb
     id: tft_display
+    rotation: 90
     color_order: RGB
     dimensions:
       width: 320
@@ -185,6 +206,9 @@ touchscreen:
   - platform: ft63x6
     id: my_touch
     i2c_id: i2c_bus
+    transform:
+      swap_xy: true
+      mirror_x: true
     # We purposefully exclude the interrupt_pin because it resides on the PCA9554. 
     # ESPHome will poll the touch controller over I2C, avoiding any I2C bus contention 
     # with the custom qualia_init.h C++ display initialization routine.
@@ -263,3 +287,28 @@ interval:
               [
                 'id(ha_pid_co2_active).state ? "CO2 Regler" : (id(ha_pid_hum_active).state ? "Feuchteschutz" : "Idle (Kein Eingriff)")',
               ]
+      - lvgl.label.update:
+          id: label_iaq_index
+          text:
+            format: "IAQ Index:\n%.0f"
+            args: ["id(ha_iaq).state"]
+      - lvgl.label.update:
+          id: label_efficiency
+          text:
+            format: "Effizienz:\n%.1f %%"
+            args: ["id(ha_efficiency).state"]
+      - lvgl.label.update:
+          id: label_zuluft_temp
+          text:
+            format: "Zuluft:\n%.1f °C"
+            args: ["id(ha_zuluft_temp).state"]
+      - lvgl.label.update:
+          id: label_abluft_temp
+          text:
+            format: "Abluft:\n%.1f °C"
+            args: ["id(ha_abluft_temp).state"]
+      - lvgl.label.update:
+          id: label_filter_status
+          text:
+            format: "Filter:\n%s"
+            args: ['id(ha_filter_alarm).state ? "WECHSELN!" : "OK"']

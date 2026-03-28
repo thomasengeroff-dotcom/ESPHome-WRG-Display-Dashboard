@@ -5,16 +5,16 @@
 font:
   - file: "gfonts://Roboto"
     id: font_time
-    size: 64
+    size: 80
   - file: "gfonts://Roboto"
     id: font_date
-    size: 24
+    size: 32
   - file: "gfonts://Roboto"
     id: font_large
-    size: 28
+    size: 48
   - file: "gfonts://Roboto"
     id: font_small
-    size: 16
+    size: 28
 
 lvgl:
   id: my_lvgl
@@ -129,8 +129,8 @@ lvgl:
             width: 100%
             height: 100%
             on_click:
-              - lvgl.page.previous:
-                  animation: MOVE_RIGHT
+              - lvgl.page.next:
+                  animation: MOVE_LEFT
                   time: 300ms
 
             widgets:
@@ -149,8 +149,8 @@ lvgl:
                   bg_opa: 0  # Transparent
                   layout:
                     type: GRID
-                    grid_columns: [150, 150] # 2 Spalten
-                    grid_rows: [160, 160, 160, 160] # 4 Zeilen
+                    grid_columns: [200, 200, 200, 200]
+                    grid_rows: [125, 125]
                   
                   widgets:
                     - label:
@@ -172,23 +172,23 @@ lvgl:
                     - label:
                         id: label_vent_temp
                         text: "Temp:\\n-- °C"
-                        grid_cell_row_pos: 1
-                        grid_cell_column_pos: 0
+                        grid_cell_row_pos: 0
+                        grid_cell_column_pos: 2
                         align: CENTER
                         text_color: 0xcf6679
 
                     - label:
                         id: label_vent_co2
                         text: "CO2:\\n-- ppm"
-                        grid_cell_row_pos: 1
-                        grid_cell_column_pos: 1
+                        grid_cell_row_pos: 0
+                        grid_cell_column_pos: 3
                         align: CENTER
                         text_color: 0xbb86fc
 
                     - label:
                         id: label_vent_humidity
                         text: "Feuchte:\\n-- %"
-                        grid_cell_row_pos: 2
+                        grid_cell_row_pos: 1
                         grid_cell_column_pos: 0
                         align: CENTER
                         text_color: 0x03a9f4
@@ -196,7 +196,7 @@ lvgl:
                     - label:
                         id: label_vent_radar
                         text: "Radar:\\n--"
-                        grid_cell_row_pos: 2
+                        grid_cell_row_pos: 1
                         grid_cell_column_pos: 1
                         align: CENTER
                         text_color: 0xffffff
@@ -204,8 +204,84 @@ lvgl:
                     - label:
                         id: label_pid_status
                         text: "Automatik aktiv:\\nIdle"
-                        grid_cell_row_pos: 3
-                        grid_cell_column_pos: 0
+                        grid_cell_row_pos: 1
+                        grid_cell_column_pos: 2
                         grid_cell_column_span: 2
                         align: CENTER
                         text_color: 0x9ca3af
+
+    - id: page_diagnostics
+      widgets:
+        - obj:
+            width: 100%
+            height: 100%
+            on_click:
+              - lvgl.page.next:
+                  animation: MOVE_LEFT
+                  time: 300ms
+            
+            widgets:
+              - label:
+                  text: "System-Diagnose & Effizienz"
+                  align: TOP_MID
+                  y: 10
+                  text_font: font_large
+                  text_color: 0xbb86fc
+
+              - obj:
+                  align: CENTER
+                  y: 15
+                  width: 95%
+                  height: 80%
+                  bg_opa: 0 
+                  layout:
+                    type: GRID
+                    grid_columns: [200, 200, 200, 200]
+                    grid_rows: [125, 125]
+                  
+                  widgets:
+                    - label:
+                        id: label_iaq_index
+                        text: "IAQ Index:\\n--"
+                        grid_cell_row_pos: 0
+                        grid_cell_column_pos: 0
+                        align: CENTER
+                        text_font: font_small
+                        text_color: 0x03dac6
+
+                    - label:
+                        id: label_efficiency
+                        text: "Effizienz:\\n-- %"
+                        grid_cell_row_pos: 0
+                        grid_cell_column_pos: 1
+                        align: CENTER
+                        text_font: font_small
+                        text_color: 0xffb74d
+
+                    - label:
+                        id: label_zuluft_temp
+                        text: "Zuluft:\\n-- °C"
+                        grid_cell_row_pos: 0
+                        grid_cell_column_pos: 2
+                        align: CENTER
+                        text_font: font_small
+                        text_color: 0x64b5f6
+
+                    - label:
+                        id: label_abluft_temp
+                        text: "Abluft:\\n-- °C"
+                        grid_cell_row_pos: 0
+                        grid_cell_column_pos: 3
+                        align: CENTER
+                        text_font: font_small
+                        text_color: 0xe57373
+
+                    - label:
+                        id: label_filter_status
+                        text: "Filter:\\nOK"
+                        grid_cell_row_pos: 1
+                        grid_cell_column_pos: 0
+                        grid_cell_column_span: 4
+                        align: CENTER
+                        text_font: font_large
+                        text_color: 0xffffff
