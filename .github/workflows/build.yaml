@@ -21,7 +21,7 @@ jobs:
 
       - name: ESPHome Builder
         id: esphome-build
-        uses: esphome/build-action@v7.2.0
+        uses: esphome/build-action@v7.3.0
         with:
           yaml-file: dashboard_main.yaml
           version: "2025.12.7"
