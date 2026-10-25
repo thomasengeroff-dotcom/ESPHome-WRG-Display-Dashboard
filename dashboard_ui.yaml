@@ -3,7 +3,9 @@
 #   page_main   - Übersicht: one card per VentoSync unit, room mode, Automatik-Status
 #   page_wrg    - Wärmerückgewinnung: NTC temperatures, efficiency, presence, room inputs
 #   page_system - Raumklima (local BME680) and per-device diagnostics
-# Tap anywhere to switch pages; after 60 s without touch the overview returns.
+#   page_detail - one unit: current values, 24 h chart, room mode / level controls
+#                 (packages/ui_page_detail.yaml, opened by tapping a card)
+# Tap the background to switch pages; after 60 s without touch the overview returns.
 # ---------------------------------------------------------
 
 font:
@@ -56,6 +58,9 @@ font:
       - "\U000F07D0" # home-assistant
       - "\U000F0004" # account
       - "\U000F0012" # account-off
+      - "\U000F0141" # chevron-left
+      - "\U000F0374" # minus
+      - "\U000F0415" # plus
   - file:
       type: web
       url: "https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/fonts/materialdesignicons-webfont.ttf"
@@ -101,10 +106,21 @@ lvgl:
       pad_right: 14
       pad_top: 0
       pad_bottom: 0
+    - id: button_style
+      bg_color: 0x21262D
+      bg_opa: COVER
+      border_color: 0x30363D
+      border_width: 1
+      radius: 10
+      shadow_width: 0
+      pad_all: 0
+      text_color: 0xE6EDF3
+      text_font: font_18
 
   on_idle:
     - timeout: 60s
       then:
+        - lambda: 'dash::detail_open = false;'
         - lvgl.page.show: page_main
 
   pages:
@@ -121,7 +137,7 @@ lvgl:
             scrollable: false
             on_click:
               # No page animation: with software rotation every animation frame is a full redraw.
-              - lvgl.page.next:
+              - lvgl.page.show: page_wrg
             widgets:
               # Header: time, room mode, local climate, HA connection
               - label:
@@ -167,13 +183,13 @@ lvgl:
               # One card per ventilation unit
               - !include
                 file: packages/ui_device_card.yaml
-                vars: { key: buero, title: "Büro", x: 8 }
+                vars: { index: 0, key: buero, title: "Büro", x: 8 }
               - !include
                 file: packages/ui_device_card.yaml
-                vars: { key: flur, title: "Flur", x: 279 }
+                vars: { index: 1, key: flur, title: "Flur", x: 279 }
               - !include
                 file: packages/ui_device_card.yaml
-                vars: { key: wohnraum, title: "Wohnraum", x: 550 }
+                vars: { index: 2, key: wohnraum, title: "Wohnraum", x: 550 }
 
               # Footer: Smart-Automatik status of the room master
               - label:
@@ -207,7 +223,7 @@ lvgl:
             scrollable: false
             on_click:
               # No page animation: with software rotation every animation frame is a full redraw.
-              - lvgl.page.next:
+              - lvgl.page.show: page_system
             widgets:
               - label:
                   x: 14
@@ -381,7 +397,7 @@ lvgl:
             scrollable: false
             on_click:
               # No page animation: with software rotation every animation frame is a full redraw.
-              - lvgl.page.next:
+              - lvgl.page.show: page_main
             widgets:
               - label:
                   x: 14
@@ -482,3 +498,8 @@ lvgl:
               - !include
                 file: packages/ui_device_row.yaml
                 vars: { key: wohnraum, title: "Wohnraum", y: 270 }
+
+    # =====================================================
+    # Page 4: Detail of one unit (not part of the page cycle)
+    # =====================================================
+    - !include packages/ui_page_detail.yaml

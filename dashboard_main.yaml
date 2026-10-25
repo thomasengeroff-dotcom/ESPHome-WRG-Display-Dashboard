@@ -53,6 +53,11 @@ api:
 ota:
   - platform: esphome
 
+# Fetches the 24 h history from the VentoSync units' web dashboard (GET /history)
+http_request:
+  timeout: 5s
+  verify_ssl: false
+
 # ---------------------------------------------------------
 # Zeit synchronisation für den Mainscreen
 # ---------------------------------------------------------
@@ -84,6 +89,10 @@ esphome:
   includes:
     - qualia_init.h
     - dashboard.h
+    - dashboard_detail.h
+  build_flags:
+    # lv_chart for the 24 h history on page_detail (not exposed as an ESPHome widget)
+    - -DLV_USE_CHART=1
 
   on_boot:
     priority: 800
@@ -123,6 +132,24 @@ sensor:
       on_value:
         - script.execute: refresh_local
 
+  # --- Room controls (room master) ---
+  - platform: homeassistant
+    id: ha_room_level
+    entity_id: number.${master_prefix}_lufter_intensitat
+    on_value:
+      - lambda: 'if (id(pending_level) == (int) x) id(pending_level) = 0;'
+      - script.execute: refresh_controls
+  - platform: homeassistant
+    id: ha_override_remaining
+    entity_id: sensor.${master_area_prefix}_automatik_ubersteuerung_restzeit
+    on_value:
+      - script.execute: refresh_controls
+  - platform: homeassistant
+    id: ha_override_duration
+    entity_id: number.${master_area_prefix}_smart_automatik_ubersteuerung_dauer
+    on_value:
+      - script.execute: refresh_controls
+
   # --- Wärmerückgewinnung (unit with NTCs) ---
   - platform: homeassistant
     id: ha_wrg_outdoor
@@ -154,6 +181,7 @@ text_sensor:
     entity_id: select.${master_prefix}_luftermodus
     on_value:
       - lambda: 'dash::set_text(id(label_mode), dash::text_or(x));'
+      - script.execute: refresh_controls
   - platform: homeassistant
     id: ha_auto_status
     entity_id: sensor.${master_area_prefix}_automatik_status
@@ -180,7 +208,152 @@ binary_sensor:
           dash::set_text(id(label_presence_icon), x ? dash::ICON_PRESENT : dash::ICON_ABSENT);
           dash::set_color(id(label_presence_icon), x ? dash::COL_OK : dash::COL_MUTED);
 
+globals:
+  # Level tapped on the display, not yet confirmed by HA (0 = none)
+  - id: pending_level
+    type: int
+    initial_value: "0"
+
 script:
+  # ---------------- Detail page ----------------
+  - id: open_detail
+    then:
+      - lambda: |-
+          dash::detail_open = true;
+          if (dash::history.device != dash::selected)
+            dash::history.state = dash::HistoryState::EMPTY;
+      - script.execute: refresh_detail
+      - script.execute: refresh_controls
+      - script.execute: refresh_chart
+      - lvgl.page.show: page_detail
+      - script.execute: fetch_history
+  - id: refresh_detail
+    then:
+      - lambda: |-
+          auto &d = dash::current();
+          if (d.fan == nullptr)
+            return;
+          dash::set_text(id(detail_title), d.title);
+          dash::set_text(id(detail_info), dash::device_info(d));
+          dash::refresh_card(
+              {dash::obj(id(detail_status)), dash::obj(id(detail_card_name)), dash::obj(id(detail_level)),
+               dash::obj(id(detail_level_max)), dash::obj(id(detail_dir_icon)), dash::obj(id(detail_dir)),
+               dash::obj(id(detail_rpm)), dash::obj(id(detail_filter))},
+              d.fan->state, d.level->state, d.direction->state, d.rpm->state, d.filter_days->state,
+              d.filter_alarm->state);
+  - id: refresh_chart
+    then:
+      - lambda: |-
+          dash::render_chart({dash::obj(id(detail_chart_box)),
+                              {dash::obj(id(detail_legend_0)), dash::obj(id(detail_legend_1)),
+                               dash::obj(id(detail_legend_2)), dash::obj(id(detail_legend_3))},
+                              dash::obj(id(detail_y_max)), dash::obj(id(detail_y_min)),
+                              dash::obj(id(detail_chart_note)), dash::obj(id(detail_tab_vent)),
+                              dash::obj(id(detail_tab_temp))});
+  - id: fetch_history
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !dash::history_url().empty();'
+          then:
+            - lambda: |-
+                // Keep showing an already loaded history of this unit while it refreshes
+                if (dash::history.device != dash::selected || dash::history.state != dash::HistoryState::OK) {
+                  dash::history.device = dash::selected;
+                  dash::history.state = dash::HistoryState::LOADING;
+                }
+            - script.execute: refresh_chart
+            - http_request.get:
+                url: !lambda 'return dash::history_url();'
+                capture_response: true
+                max_response_buffer_size: 20000
+                on_response:
+                  then:
+                    - lambda: 'dash::history_parse(dash::selected, response->status_code, body);'
+                    - script.execute: refresh_chart
+                on_error:
+                  then:
+                    - lambda: |-
+                        dash::history.device = dash::selected;
+                        dash::history.state = dash::HistoryState::FAILED;
+                    - script.execute: refresh_chart
+          else:
+            - lambda: |-
+                dash::history.device = dash::selected;
+                dash::history.state = dash::HistoryState::FAILED;
+            - script.execute: refresh_chart
+
+  # ---------------- Room controls (sent to the room master) ----------------
+  - id: refresh_controls
+    then:
+      - lambda: |-
+          const int mode = dash::mode_index(id(ha_room_mode).state);
+          lv_obj_t *buttons[5] = {dash::obj(id(detail_mode_0)), dash::obj(id(detail_mode_1)),
+                                  dash::obj(id(detail_mode_2)), dash::obj(id(detail_mode_3)),
+                                  dash::obj(id(detail_mode_4))};
+          for (int i = 0; i < 5; i++)
+            dash::set_checked(buttons[i], i == mode);
+
+          const bool pending = id(pending_level) > 0;
+          const float level = pending ? id(pending_level) : id(ha_room_level).state;
+          dash::set_text(id(detail_ctl_level), dash::num(level, "%.0f"));
+          dash::set_color(id(detail_ctl_level), pending ? dash::COL_ACCENT : dash::COL_TEXT);
+          // In Smart-Automatik a level starts the room-wide override (VentoSync level button)
+          dash::set_text(id(detail_ctl_caption),
+                         mode == 0 ? "Stufe · übersteuert " + dash::num(id(ha_override_duration).state, "%.0f") + " min"
+                                   : std::string("Stufe · ganzer Raum"));
+          const float remaining = id(ha_override_remaining).state;
+          dash::set_text(id(detail_override),
+                         remaining > 0 ? "Übersteuerung noch " + dash::num(remaining, "%.0f") + " min" : std::string(""));
+  - id: send_mode
+    mode: restart
+    parameters:
+      mode_index: int
+    then:
+      - lambda: |-
+          // Optimistic: mark the tapped mode until HA confirms it
+          lv_obj_t *buttons[5] = {dash::obj(id(detail_mode_0)), dash::obj(id(detail_mode_1)),
+                                  dash::obj(id(detail_mode_2)), dash::obj(id(detail_mode_3)),
+                                  dash::obj(id(detail_mode_4))};
+          for (int i = 0; i < 5; i++)
+            dash::set_checked(buttons[i], i == mode_index);
+      - homeassistant.action:
+          action: select.select_option
+          data:
+            entity_id: select.${master_prefix}_luftermodus
+            # Same order as dash::MODES (this lambda is generated before the includes)
+            option: !lambda |-
+              static const char *const MODES[5] = {"Smart-Automatik", "Wärmerückgewinnung", "Durchlüften",
+                                                   "Stoßlüftung", "Aus"};
+              return std::string(MODES[mode_index]);
+      # Fall back to the HA state if the change was not applied
+      - delay: 4s
+      - script.execute: refresh_controls
+  - id: change_level
+    parameters:
+      delta: int
+    then:
+      - lambda: |-
+          const float current = id(ha_room_level).state;
+          int base = id(pending_level) > 0 ? id(pending_level) : (std::isnan(current) ? 1 : (int) current);
+          id(pending_level) = std::max(1, std::min(10, base + delta));
+      - script.execute: refresh_controls
+      - script.execute: send_level
+  - id: send_level
+    mode: restart
+    then:
+      # Collect fast taps into one change
+      - delay: 700ms
+      - homeassistant.action:
+          action: number.set_value
+          data:
+            entity_id: number.${master_prefix}_lufter_intensitat
+            value: !lambda 'return esphome::to_string(id(pending_level));'
+      - delay: 4s
+      - lambda: 'id(pending_level) = 0;'
+      - script.execute: refresh_controls
+
   - id: refresh_local
     then:
       - lambda: |-
@@ -248,16 +421,24 @@ packages:
   ui: !include dashboard_ui.yaml
   device_1: !include
     file: packages/ventosync_device.yaml
-    vars: { key: buero, prefix: "${device_1_prefix}" }
+    vars: { index: 0, key: buero, title: "Büro", prefix: "${device_1_prefix}" }
   device_2: !include
     file: packages/ventosync_device.yaml
-    vars: { key: flur, prefix: "${device_2_prefix}" }
+    vars: { index: 1, key: flur, title: "Flur", prefix: "${device_2_prefix}" }
   device_3: !include
     file: packages/ventosync_device.yaml
-    vars: { key: wohnraum, prefix: "${device_3_prefix}" }
+    vars: { index: 2, key: wohnraum, title: "Wohnraum", prefix: "${device_3_prefix}" }
 
 # HA connection indicator in the header (values freeze while disconnected)
 interval:
+  # Refresh the history while a detail page is open (VentoSync closes a bucket every 5 min)
+  - interval: 5min
+    then:
+      - if:
+          condition:
+            lambda: 'return dash::detail_open;'
+          then:
+            - script.execute: fetch_history
   - interval: 5s
     then:
       - if:

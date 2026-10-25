@@ -1,12 +1,17 @@
-# Overview card for one ventilation unit (page_main). Vars: key, title, x
+# Overview card for one ventilation unit (page_main). Vars: index, key, title, x
+# Tapping the card opens page_detail for this unit.
 obj:
   x: ${x}
   y: 62
   width: 262
   height: 200
   styles: card_style
-  clickable: false
   scrollable: false
+  pressed:
+    bg_color: 0x1F2630
+  on_click:
+    - lambda: 'dash::selected = ${index};'
+    - script.execute: open_detail
   widgets:
     - label:
         id: ${key}_lbl_name

@@ -1,0 +1,375 @@
+# Detail page of the unit in dash::selected (opened from an overview card).
+#   top:    back button, unit name, device / Wi-Fi / firmware, override countdown
+#   left:   current values (same logic as the overview card, dash::refresh_card)
+#   right:  24 h chart from the unit's GET /history (dash::render_chart)
+#   bottom: room mode and room level; sent to the room master, VentoSync syncs the room
+id: page_detail
+skip: true
+bg_color: 0x0B0F14
+widgets:
+  - obj:
+      width: 100%
+      height: 100%
+      styles: screen_style
+      scrollable: false
+      widgets:
+        # ---------------- Header ----------------
+        - button:
+            id: detail_back
+            x: 8
+            y: 6
+            width: 138
+            height: 40
+            styles: button_style
+            on_click:
+              - lambda: 'dash::detail_open = false;'
+              - lvgl.page.show: page_main
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 2
+                  text: "\U000F0141"
+                  text_font: font_icon_32
+              - label:
+                  align: LEFT_MID
+                  x: 38
+                  text: "Übersicht"
+                  text_font: font_18
+        - label:
+            id: detail_title
+            x: 160
+            y: 10
+            text: "--"
+            text_font: font_28
+        - label:
+            id: detail_info
+            align_to:
+              id: detail_title
+              align: OUT_RIGHT_MID
+              x: 14
+            text: ""
+            text_font: font_18
+            text_color: 0x8B949E
+        - label:
+            id: detail_override
+            align: TOP_RIGHT
+            x: -14
+            y: 16
+            text: ""
+            text_font: font_18
+            text_color: 0x2DD4BF
+
+        # ---------------- Current values ----------------
+        - obj:
+            x: 8
+            y: 54
+            width: 250
+            height: 172
+            styles: card_style
+            clickable: false
+            scrollable: false
+            widgets:
+              - label:
+                  id: detail_card_name
+                  align: TOP_LEFT
+                  text: "Lüfter"
+                  text_font: font_22
+              - label:
+                  id: detail_status
+                  align: TOP_RIGHT
+                  text: "\U000F0319"
+                  text_font: font_icon_32
+                  text_color: 0x8B949E
+              - label:
+                  id: detail_level
+                  align: LEFT_MID
+                  y: 4
+                  text: "--"
+                  text_font: font_72
+              - label:
+                  id: detail_level_max
+                  align_to:
+                    id: detail_level
+                    align: OUT_RIGHT_BOTTOM
+                    x: 4
+                    y: -12
+                  text: ""
+                  text_font: font_22
+                  text_color: 0x8B949E
+              - label:
+                  id: detail_dir_icon
+                  align: RIGHT_MID
+                  x: -10
+                  y: -12
+                  text: ""
+                  text_font: font_icon_56
+              - label:
+                  id: detail_dir
+                  align: RIGHT_MID
+                  y: 34
+                  text: "--"
+                  text_font: font_22
+                  text_color: 0x8B949E
+              - label:
+                  id: detail_rpm
+                  align: BOTTOM_LEFT
+                  text: "-- U/min"
+                  text_font: font_18
+                  text_color: 0x8B949E
+              - label:
+                  id: detail_filter
+                  align: BOTTOM_RIGHT
+                  text: "Filter -- d"
+                  text_font: font_18
+                  text_color: 0x8B949E
+
+        # ---------------- 24 h chart ----------------
+        - obj:
+            x: 266
+            y: 54
+            width: 546
+            height: 172
+            styles: card_style
+            clickable: false
+            scrollable: false
+            widgets:
+              - button:
+                  id: detail_tab_vent
+                  x: 0
+                  y: 0
+                  width: 100
+                  height: 30
+                  styles: button_style
+                  checked:
+                    bg_color: 0x2DD4BF
+                    text_color: 0x0B0F14
+                  on_click:
+                    - lambda: 'dash::chart_tab = dash::TAB_VENTILATION;'
+                    - script.execute: refresh_chart
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "Lüftung"
+              - button:
+                  id: detail_tab_temp
+                  x: 106
+                  y: 0
+                  width: 130
+                  height: 30
+                  styles: button_style
+                  checked:
+                    bg_color: 0x2DD4BF
+                    text_color: 0x0B0F14
+                  disabled:
+                    text_color: 0x484F58
+                  on_click:
+                    - lambda: 'dash::chart_tab = dash::TAB_TEMPERATURE;'
+                    - script.execute: refresh_chart
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "Temperaturen"
+              - label:
+                  id: detail_chart_note
+                  align: TOP_RIGHT
+                  y: 6
+                  text: ""
+                  text_font: font_18
+                  text_color: 0x8B949E
+              - label:
+                  id: detail_y_max
+                  x: 0
+                  y: 34
+                  text: ""
+                  text_font: font_18
+                  text_color: 0x8B949E
+              - label:
+                  id: detail_y_min
+                  x: 0
+                  y: 106
+                  text: ""
+                  text_font: font_18
+                  text_color: 0x8B949E
+              # The lv_chart is created in here by dash::render_chart
+              - obj:
+                  id: detail_chart_box
+                  x: 34
+                  y: 38
+                  width: 488
+                  height: 88
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  clickable: false
+                  scrollable: false
+              - obj:
+                  x: 34
+                  y: 128
+                  width: 488
+                  height: 22
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  clickable: false
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_cross: CENTER
+                    pad_column: 18
+                  widgets:
+                    - label:
+                        id: detail_legend_0
+                        text: ""
+                        text_font: font_18
+                    - label:
+                        id: detail_legend_1
+                        text: ""
+                        text_font: font_18
+                    - label:
+                        id: detail_legend_2
+                        text: ""
+                        text_font: font_18
+                    - label:
+                        id: detail_legend_3
+                        text: ""
+                        text_font: font_18
+
+        # ---------------- Room mode ----------------
+        - obj:
+            x: 8
+            y: 234
+            width: 548
+            height: 78
+            styles: card_style
+            pad_all: 8
+            clickable: false
+            scrollable: false
+            widgets:
+              - label:
+                  x: 2
+                  y: -2
+                  text: "Modus · ganzer Raum"
+                  text_font: font_18
+                  text_color: 0x8B949E
+              - button:
+                  id: detail_mode_0
+                  x: 0
+                  y: 22
+                  width: 101
+                  height: 38
+                  styles: button_style
+                  checked:
+                    bg_color: 0x2DD4BF
+                    text_color: 0x0B0F14
+                  on_click:
+                    - script.execute: { id: send_mode, mode_index: 0 }
+                  widgets:
+                    - label: { align: CENTER, text: "Automatik" }
+              - button:
+                  id: detail_mode_1
+                  x: 107
+                  y: 22
+                  width: 101
+                  height: 38
+                  styles: button_style
+                  checked:
+                    bg_color: 0x2DD4BF
+                    text_color: 0x0B0F14
+                  on_click:
+                    - script.execute: { id: send_mode, mode_index: 1 }
+                  widgets:
+                    - label: { align: CENTER, text: "WRG" }
+              - button:
+                  id: detail_mode_2
+                  x: 214
+                  y: 22
+                  width: 101
+                  height: 38
+                  styles: button_style
+                  checked:
+                    bg_color: 0x2DD4BF
+                    text_color: 0x0B0F14
+                  on_click:
+                    - script.execute: { id: send_mode, mode_index: 2 }
+                  widgets:
+                    - label: { align: CENTER, text: "Durchlüften" }
+              - button:
+                  id: detail_mode_3
+                  x: 321
+                  y: 22
+                  width: 101
+                  height: 38
+                  styles: button_style
+                  checked:
+                    bg_color: 0x2DD4BF
+                    text_color: 0x0B0F14
+                  on_click:
+                    - script.execute: { id: send_mode, mode_index: 3 }
+                  widgets:
+                    - label: { align: CENTER, text: "Stoßlüften" }
+              - button:
+                  id: detail_mode_4
+                  x: 428
+                  y: 22
+                  width: 101
+                  height: 38
+                  styles: button_style
+                  checked:
+                    bg_color: 0xEF4444
+                    text_color: 0x0B0F14
+                  on_click:
+                    - script.execute: { id: send_mode, mode_index: 4 }
+                  widgets:
+                    - label: { align: CENTER, text: "Aus" }
+
+        # ---------------- Room level ----------------
+        - obj:
+            x: 564
+            y: 234
+            width: 248
+            height: 78
+            styles: card_style
+            pad_all: 8
+            clickable: false
+            scrollable: false
+            widgets:
+              - label:
+                  id: detail_ctl_caption
+                  x: 2
+                  y: -2
+                  width: 228
+                  long_mode: DOT
+                  text: "Stufe · ganzer Raum"
+                  text_font: font_18
+                  text_color: 0x8B949E
+              - button:
+                  id: detail_level_down
+                  x: 0
+                  y: 22
+                  width: 64
+                  height: 38
+                  styles: button_style
+                  on_click:
+                    - script.execute: { id: change_level, delta: -1 }
+                  widgets:
+                    - label: { align: CENTER, text: "\U000F0374", text_font: font_icon_32 }
+              - label:
+                  id: detail_ctl_level
+                  x: 64
+                  y: 24
+                  width: 102
+                  text_align: CENTER
+                  text: "--"
+                  text_font: font_28
+              - button:
+                  id: detail_level_up
+                  x: 166
+                  y: 22
+                  width: 64
+                  height: 38
+                  styles: button_style
+                  on_click:
+                    - script.execute: { id: change_level, delta: 1 }
+                  widgets:
+                    - label: { align: CENTER, text: "\U000F0415", text_font: font_icon_32 }

@@ -10,15 +10,20 @@ Ich habe sonst keine OpenSource Projekte finden können, welche dieses Display &
 
 Dieses Projekt stellt ein Touch-Dashboard zur Verfügung, welches lokal Sensordaten (BME680) erfasst und die vernetzten Lüftungsgeräte meines [VentoSync](https://github.com/thomasengeroff-dotcom/ESPHome-Wohnraumlueftung)-Projekts ("ESPHome-Wohnraumlueftung") über Home Assistant übersichtlich anzeigt.
 Die Benutzeroberfläche wurde mit **LVGL (Light and Versatile Graphics Library)** deklarativ in YAML umgesetzt und läuft im Querformat auf dem "Rectangle Bar" Display.
-Aktuell ist das Dashboard eine reine Anzeige; eine Steuerung der Geräte (Modus, Stufe) per Touch ist noch nicht umgesetzt. Der Ordner `ui/` enthält einen ersten, noch nicht eingebundenen Entwurf aus EEZ Studio.
+Über die Detailseite eines Geräts lassen sich Betriebsmodus und Lüfterstufe des Raums direkt am Display ändern. Der Ordner `ui/` enthält einen ersten, noch nicht eingebundenen Entwurf aus EEZ Studio.
 
 ## ✨ Features
 
-- **Dreiseitiges LVGL-Dashboard im Querformat (820 x 320)** für [VentoSync](https://github.com/thomasengeroff-dotcom/ESPHome-Wohnraumlueftung)-Geräte (Seitenwechsel per Tippen, nach 60 s zurück zur Übersicht):
-  - **Übersicht**: Uhrzeit, Raummodus, lokales Raumklima und je eine Karte pro Lüftungsgerät (online/aus, Lüfterstufe, Richtung Zuluft/Abluft, Drehzahl, Filter-Betriebstage bzw. Filterwechsel-Alarm) sowie der Smart-Automatik-Status des Masters.
+- **LVGL-Dashboard im Querformat (820 x 320)** für [VentoSync](https://github.com/thomasengeroff-dotcom/ESPHome-Wohnraumlueftung)-Geräte (Tippen auf den Hintergrund wechselt die Seite, nach 60 s ohne Berührung zurück zur Übersicht):
+  - **Übersicht**: Uhrzeit, Raummodus, lokales Raumklima und je eine Karte pro Lüftungsgerät (online/aus, Lüfterstufe, Richtung Zuluft/Abluft, Drehzahl, Filter-Betriebstage bzw. Filterwechsel-Alarm) sowie der Smart-Automatik-Status des Masters. **Tippen auf eine Karte öffnet die Detailseite des Geräts.**
+  - **Detailseite**: aktuelle Werte des Geräts (Gerät/Phase, WLAN, Firmware), ein **24-h-Verlauf** wie im VentoSync-Web-Dashboard (Reiter *Lüftung*: Stufe, Bedarf, CO2; Reiter *Temperaturen*: Außenluft, Zuluft nach WRG, Abluft, WRG-Wirkungsgrad, nur bei Geräten mit NTCs) und die **Bedienung**:
+    - **Modus** (Automatik, WRG, Durchlüften, Stoßlüften, Aus) und **Lüfterstufe** (−/+) gelten für den ganzen Raum und werden über Home Assistant an den Raum-Master geschickt; VentoSync gleicht die übrigen Geräte per ESP-NOW an.
+    - In Smart-Automatik startet eine Stufenänderung die raumweite Übersteuerung (wie die Stufen-Taste am Gerät, Dauer laut *Smart-Automatik: Übersteuerung Dauer*); die Restzeit steht oben rechts.
+    - Mehrere schnelle Tipps auf −/+ werden zu einer Änderung zusammengefasst.
   - **Wärmerückgewinnung**: Außenluft, Zuluft nach WRG, Raumluft und WRG-Effizienz des Geräts mit NTCs, dazu Radar-Anwesenheit, Klima-Koordination und Fenstersperre.
   - **Raumklima & System**: lokale BME680-Werte und pro Gerät Konfiguration (Gerät/Phase), WLAN-Signal und Firmware-Version.
 - **Lokale Sensorik**: Einbindung eines lokalen BME680-Sensors zur Überwachung der Raumluftqualität am Ort des Displays.
+- **24-h-Verlauf**: Die Detailseite lädt den Verlauf direkt vom Gerät (`GET http://<IP>/history` des VentoSync-Web-Dashboards, 5-Minuten-Mittelwerte, alle 5 Minuten aktualisiert) und zeichnet ihn mit dem LVGL-Chart. Der Verlauf liegt im RAM des Lüftungsgeräts und beginnt nach dessen Neustart neu.
 - **Home Assistant Integration**: Liest die Zustände und Sensoren der VentoSync-Geräte über die ESPHome Native API (verschlüsselt). Die Anzeige aktualisiert sich ereignisgesteuert, sobald Home Assistant einen neuen Wert meldet; ein Symbol in der Kopfzeile zeigt, ob die Verbindung zu Home Assistant steht.
 - **Mehrere Geräte**: Jedes Lüftungsgerät wird über ein wiederverwendbares Paket eingebunden (siehe [Weiteres Gerät hinzufügen](#-weiteres-gerät-hinzufügen)).
 - **Custom Display Initialisierung**: C++ basierte SPI-Initialisierung (Bitbanging) über einen I2C-Expander, da alle regulären Pins für das RGB-666 Interface benötigt werden.
@@ -65,7 +70,9 @@ Die Ansteuerung eines ST7701S RGB-Displays mit einem Adafruit Qualia Board unter
 - `dashboard_ui.yaml` - Die reine LVGL Benutzeroberfläche (Seiten `page_main`, `page_wrg`, `page_system`, Fonts, Styles).
 - `packages/ventosync_device.yaml` - Home-Assistant-Entitäten eines VentoSync-Geräts, wird pro Gerät mit `key`/`prefix` eingebunden.
 - `packages/ui_device_card.yaml`, `packages/ui_device_row.yaml` - Widget-Bausteine (Übersichtskarte, Systemzeile) pro Gerät.
+- `packages/ui_page_detail.yaml` - Detailseite (Werte, Diagramm, Bedienung), gemeinsam für alle Geräte.
 - `dashboard.h` - C++-Helfer für NaN-sichere Formatierung und die Kartenlogik.
+- `dashboard_detail.h` - Geräteregister, Verlauf (Abruf und Parser) und Diagramm der Detailseite.
 - `qualia_init.h` - Der C++ Code für die 3-Wire SPI Initialisierung des ST7701S via PCA9554 I2C-Expander.
 - `secrets_example.yaml` - Vorlage für die WLAN- und Passwortkonfigurationen.
 - `ui/`, `ui_bridge.h` - Entwurf einer UI aus EEZ Studio (noch nicht in die Firmware eingebunden).
@@ -93,22 +100,25 @@ Voraussetzung ist **ESPHome 2026.10.0** (dieselbe Version wie in der CI und im V
 
 5. Nach dem erfolgreichen ersten Flashen können zukünftige Updates einfach via OTA-Update über dein lokales Netzwerk durchgeführt werden.
 6. In Home Assistant das Gerät "WRG Dashboard" über die ESPHome-Integration hinzufügen. Erst danach erhält das Display die Werte der Lüftungsgeräte.
+7. Für die Bedienung muss in Home Assistant unter *Einstellungen → Geräte & Dienste → ESPHome → WRG Dashboard → Konfigurieren* die Option **„Dem Gerät erlauben, Home-Assistant-Aktionen auszuführen"** aktiv sein.
 
 ## ➕ Weiteres Gerät hinzufügen
 
-1. In `dashboard_main.yaml` ein weiteres Paket mit eigenem `key` und dem HA-Präfix des Geräts eintragen:
+1. In `dashboard_main.yaml` ein weiteres Paket mit fortlaufendem `index`, eigenem `key`, Anzeigenamen und dem HA-Präfix des Geräts eintragen (höchstens 6 Geräte, `dash::MAX_DEVICES`):
 
    ```yaml
    packages:
      device_4: !include
        file: packages/ventosync_device.yaml
-       vars: { key: schlafzimmer, prefix: "ventosync_og_schlafzimmer" }
+       vars: { index: 3, key: schlafzimmer, title: "Schlafzimmer", prefix: "ventosync_og_schlafzimmer" }
    ```
 
-2. In `dashboard_ui.yaml` die passende Karte (`packages/ui_device_card.yaml`) und Systemzeile (`packages/ui_device_row.yaml`) mit demselben `key` einfügen und das Layout (x-/y-Positionen) anpassen. Auf der Übersicht ist bei 820 px Breite Platz für drei Karten; für mehr Geräte bietet sich eine weitere Seite an.
+2. In `dashboard_ui.yaml` die passende Karte (`packages/ui_device_card.yaml`, mit demselben `index`) und Systemzeile (`packages/ui_device_row.yaml`) mit demselben `key` einfügen und das Layout (x-/y-Positionen) anpassen. Auf der Übersicht ist bei 820 px Breite Platz für drei Karten; für mehr Geräte bietet sich eine weitere Seite an.
 
 ## 🩺 Fehlersuche
 
 - **Alle Werte zeigen `--`**: Prüfe, ob das Display in Home Assistant eingebunden ist (Symbol oben rechts türkis statt rot) und ob die Entity-IDs zu den Präfixen in `substitutions:` passen. Das serielle Log (`esphome logs dashboard_main.yaml --device /dev/ttyACM0`) zeigt die empfangenen Zustände.
 - **Raumklima zeigt `--`**: Im Log unter `Results from bus scan` muss der BME680 auf `0x77` erscheinen. Fehlt er, ist der Sensor nicht angeschlossen oder steht auf Adresse `0x76` (dann `address:` unter `bme68x_bsec2_i2c` anpassen).
+- **Detailseite zeigt „Verlauf nicht erreichbar"**: Das Display holt den Verlauf über die IP-Adresse aus `sensor.<prefix>_ip_adresse`. Das Web-Dashboard des Lüftungsgeräts muss im Netz erreichbar sein (`http://<IP>/history` im Browser testen).
+- **Modus/Stufe lassen sich nicht ändern**: Option „Dem Gerät erlauben, Home-Assistant-Aktionen auszuführen" in der ESPHome-Integration prüfen (siehe Setup, Schritt 7).
 - **Konfiguration lässt sich nicht validieren (`rotation` ... not compatible with LVGL)**: Die Rotation gehört in den `lvgl:`-Block, nicht unter `display:`.
