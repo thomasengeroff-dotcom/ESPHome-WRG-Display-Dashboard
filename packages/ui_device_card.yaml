@@ -1,0 +1,63 @@
+# Overview card for one ventilation unit (page_main). Vars: key, title, x
+obj:
+  x: ${x}
+  y: 62
+  width: 262
+  height: 200
+  styles: card_style
+  clickable: false
+  scrollable: false
+  widgets:
+    - label:
+        id: ${key}_lbl_name
+        align: TOP_LEFT
+        text: "${title}"
+        text_font: font_28
+    - label:
+        id: ${key}_lbl_status
+        align: TOP_RIGHT
+        text: "\U000F0319"
+        text_font: font_icon_32
+        text_color: 0x8B949E
+    - label:
+        id: ${key}_lbl_level
+        align: LEFT_MID
+        y: 4
+        text: "--"
+        text_font: font_72
+    - label:
+        id: ${key}_lbl_level_max
+        align_to:
+          id: ${key}_lbl_level
+          align: OUT_RIGHT_BOTTOM
+          x: 4
+          y: -12
+        text: ""
+        text_font: font_22
+        text_color: 0x8B949E
+    - label:
+        id: ${key}_lbl_dir_icon
+        align: RIGHT_MID
+        x: -14
+        y: -12
+        text: ""
+        text_font: font_icon_56
+    - label:
+        id: ${key}_lbl_dir
+        align: RIGHT_MID
+        y: 34
+        text: "--"
+        text_font: font_22
+        text_color: 0x8B949E
+    - label:
+        id: ${key}_lbl_rpm
+        align: BOTTOM_LEFT
+        text: "-- U/min"
+        text_font: font_18
+        text_color: 0x8B949E
+    - label:
+        id: ${key}_lbl_filter
+        align: BOTTOM_RIGHT
+        text: "Filter -- d"
+        text_font: font_18
+        text_color: 0x8B949E

@@ -14,9 +14,10 @@ Die Benutzeroberfläche wurde mit **LVGL (Light and Versatile Graphics Library)*
 
 ## ✨ Features
 
-- **Zweiseitiges LVGL-Dashboard**:
-  - **Main Screen**: Zeigt Uhrzeit, Datum und die lokalen Sensordaten (Temperatur, Luftfeuchtigkeit, IAQ) an.
-  - **WRG Status Screen**: Zeigt den Live-Status der Wohnraumlüftung (Modus, Lüfterstufe, CO2, Feuchtigkeit, Radar-Präsenz, Automatik-PID-Status).
+- **Dreiseitiges LVGL-Dashboard im Querformat (820 x 320)** für [VentoSync](https://github.com/thomasengeroff-dotcom/ESPHome-Wohnraumlueftung)-Geräte (Seitenwechsel per Tippen, nach 60 s zurück zur Übersicht):
+  - **Übersicht**: Uhrzeit, Raummodus, lokales Raumklima und je eine Karte pro Lüftungsgerät (online/aus, Lüfterstufe, Richtung Zuluft/Abluft, Drehzahl, Filter-Betriebstage bzw. Filterwechsel-Alarm) sowie der Smart-Automatik-Status des Masters.
+  - **Wärmerückgewinnung**: Außenluft, Zuluft nach WRG, Raumluft und WRG-Effizienz des Geräts mit NTCs, dazu Radar-Anwesenheit, Klima-Koordination und Fenstersperre.
+  - **Raumklima & System**: lokale BME680-Werte und pro Gerät Konfiguration (Gerät/Phase), WLAN-Signal und Firmware-Version.
 - **Lokale Sensorik**: Einbindung eines lokalen BME680-Sensors zur Überwachung der Raumluftqualität am Ort des Displays.
 - **Home Assistant Integration**: Nahtlose Anbindung an Home Assistant zum Lesen der Lüftungssensoren und -zustände.
 - **Custom Display Initialisierung**: C++ basierte SPI-Initialisierung (Bitbanging) über einen I2C-Expander, da alle regulären Pins für das RGB-666 Interface benötigt werden.
@@ -57,7 +58,10 @@ Die Ansteuerung eines ST7701S RGB-Displays mit einem Adafruit Qualia Board unter
 
 - `README.md` - Diese Dokumentation.
 - `dashboard_main.yaml` - Die ESPHome Hauptkonfiguration (Board-Settings, WLAN, I2C, Sensoren, Display-Definition, OTA, Time).
-- `dashboard_ui.yaml` - Die reine LVGL Benutzeroberfläche (Seiten `page_main` & `page_wrg_1`, Fonts, Layouts).
+- `dashboard_ui.yaml` - Die reine LVGL Benutzeroberfläche (Seiten `page_main`, `page_wrg`, `page_system`, Fonts, Styles).
+- `packages/ventosync_device.yaml` - Home-Assistant-Entitäten eines VentoSync-Geräts, wird pro Gerät mit `key`/`prefix` eingebunden.
+- `packages/ui_device_card.yaml`, `packages/ui_device_row.yaml` - Widget-Bausteine (Übersichtskarte, Systemzeile) pro Gerät.
+- `dashboard.h` - C++-Helfer für NaN-sichere Formatierung und die Kartenlogik.
 - `qualia_init.h` - Der C++ Code für die 3-Wire SPI Initialisierung des ST7701S via PCA9554 I2C-Expander.
 - `secrets - Example.yaml` - Vorlage für die WLAN- und Passwortkonfigurationen.
 - `docs/` - Datasheets, Timings, Layout-Vorgaben und Python-/Hex-Beispielcodes aus der Entwicklungs- und Prototyping-Phase der Displayansteuerung.
@@ -65,8 +69,8 @@ Die Ansteuerung eines ST7701S RGB-Displays mit einem Adafruit Qualia Board unter
 ## 🚀 Setup & Installation
 
 1. Kopiere die Datei `secrets - Example.yaml` zu `secrets.yaml` und trage dort deine WLAN-Zugangsdaten ein.
-2. Passe in der `dashboard_main.yaml` unter `substitutions:` die Namen deiner Home Assistant Entities der echten Wohnraumlüftung an, insbesondere `target_ventilation_device`, `target_co2_sensor` usw.
-   - *Hinweis:* Die PID-Status-Sensoren (`binary_sensor.wrg_pid_co2_active` und `wrg_pid_hum_active`) sind aktuell in der Zeile 146 im YAML hartkodiert und sollten von dir ebenfalls auf deine entsprechenden Sensoren gepasst werden.
+2. Trage in der `dashboard_main.yaml` unter `substitutions:` die HA-Entity-Präfixe deiner VentoSync-Geräte ein (`device_1_prefix` … `device_3_prefix`, z. B. `ventosync_dg_buero` für `fan.ventosync_dg_buero_ventosync_hrv`), dazu den Raum-Master (`master_prefix`) und das Gerät mit NTCs/Radar (`wrg_prefix`).
+   - *Hinweis:* Neuere VentoSync-Entitäten (Automatik-Status, Klima-Koordination, Radar, Zuluft nach WRG) tragen zusätzlich den Bereichsnamen im Entity-ID-Präfix (z. B. `sensor.arbeitszimmer_ventosync_dg_buero_automatik_status`). Diese Präfixe stehen in `master_area_prefix` bzw. `wrg_area_prefix`.
 3. Schließe das Display per FPC-Flachbandkabel an das Adafruit Qualia Board an und verbinde den BME680 (optional) über den Stemma QT Port.
 4. Kompiliere und installiere die Firmware über USB (damit UART/JTAG korrekt eingebunden wird):
 

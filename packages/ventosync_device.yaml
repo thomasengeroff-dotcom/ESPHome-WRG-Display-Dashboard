@@ -1,0 +1,71 @@
+# ---------------------------------------------------------
+# One VentoSync ventilation unit, imported from Home Assistant.
+# Included once per device from dashboard_main.yaml with:
+#   key:    short id prefix for this file's ids (e.g. "buero")
+#   prefix: HA entity prefix of the device (e.g. "ventosync_dg_buero")
+# The matching card/system-row widgets come from packages/ui_device_card.yaml
+# and packages/ui_device_row.yaml (same "key").
+# ---------------------------------------------------------
+
+script:
+  - id: ${key}_refresh
+    mode: restart
+    then:
+      - lambda: |-
+          dash::refresh_card(
+              {dash::obj(id(${key}_lbl_status)), dash::obj(id(${key}_lbl_name)), dash::obj(id(${key}_lbl_level)),
+               dash::obj(id(${key}_lbl_level_max)), dash::obj(id(${key}_lbl_dir_icon)), dash::obj(id(${key}_lbl_dir)),
+               dash::obj(id(${key}_lbl_rpm)), dash::obj(id(${key}_lbl_filter))},
+              id(${key}_fan).state, id(${key}_level).state, id(${key}_direction).state,
+              id(${key}_rpm).state, id(${key}_filter_days).state, id(${key}_filter_alarm).state);
+
+text_sensor:
+  - platform: homeassistant
+    id: ${key}_fan
+    entity_id: fan.${prefix}_ventosync_hrv
+    on_value:
+      - script.execute: ${key}_refresh
+  - platform: homeassistant
+    id: ${key}_direction
+    entity_id: sensor.${prefix}_lufter_richtung
+    on_value:
+      - script.execute: ${key}_refresh
+  - platform: homeassistant
+    id: ${key}_version
+    entity_id: sensor.${prefix}_projektversion
+    on_value:
+      - lambda: 'dash::set_text(id(${key}_sys_version), dash::text_or(x));'
+  - platform: homeassistant
+    id: ${key}_config
+    entity_id: sensor.${prefix}_gerate_konfiguration
+    on_value:
+      - lambda: 'dash::set_text(id(${key}_sys_config), dash::text_or(x));'
+
+sensor:
+  - platform: homeassistant
+    id: ${key}_level
+    entity_id: number.${prefix}_lufter_intensitat
+    on_value:
+      - script.execute: ${key}_refresh
+  - platform: homeassistant
+    id: ${key}_rpm
+    entity_id: sensor.${prefix}_lufter_drehzahl
+    on_value:
+      - script.execute: ${key}_refresh
+  - platform: homeassistant
+    id: ${key}_filter_days
+    entity_id: sensor.${prefix}_filter_betriebstage
+    on_value:
+      - script.execute: ${key}_refresh
+  - platform: homeassistant
+    id: ${key}_wifi
+    entity_id: sensor.${prefix}_wlan_signal
+    on_value:
+      - lambda: 'dash::set_text(id(${key}_sys_wifi), dash::num(x, "%.0f dBm"));'
+
+binary_sensor:
+  - platform: homeassistant
+    id: ${key}_filter_alarm
+    entity_id: binary_sensor.${prefix}_filterwechsel_alarm
+    on_state:
+      - script.execute: ${key}_refresh

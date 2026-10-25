@@ -1,287 +1,487 @@
 # ---------------------------------------------------------
-# LVGL User Interface Configuration
+# LVGL User Interface Configuration (landscape 820 x 320)
+#   page_main   - Übersicht: one card per VentoSync unit, room mode, Automatik-Status
+#   page_wrg    - Wärmerückgewinnung: NTC temperatures, efficiency, presence, room inputs
+#   page_system - Raumklima (local BME680) and per-device diagnostics
+# Tap anywhere to switch pages; after 60 s without touch the overview returns.
 # ---------------------------------------------------------
 
 font:
+  # Text fonts: Latin kernel plus German umlauts (the default glyph set has none)
   - file: "gfonts://Roboto"
-    id: font_time
-    size: 80
+    id: font_18
+    size: 18
+    bpp: 4
+    glyphsets: [GF_Latin_Kernel]
+    glyphs: "äöüÄÖÜß·»–"
   - file: "gfonts://Roboto"
-    id: font_date
-    size: 32
+    id: font_22
+    size: 22
+    bpp: 4
+    glyphsets: [GF_Latin_Kernel]
+    glyphs: "äöüÄÖÜß·»–"
   - file: "gfonts://Roboto"
-    id: font_large
-    size: 48
-  - file: "gfonts://Roboto"
-    id: font_small
+    id: font_28
     size: 28
+    bpp: 4
+    glyphsets: [GF_Latin_Kernel]
+    glyphs: "äöüÄÖÜß·»–"
+  # Number fonts: only the glyphs they show, to save flash
+  - file: "gfonts://Roboto"
+    id: font_40
+    size: 40
+    bpp: 4
+    glyphs: "0123456789:-"
+  - file: "gfonts://Roboto"
+    id: font_48
+    size: 48
+    bpp: 4
+    glyphs: "0123456789.,-+°C% "
+  - file: "gfonts://Roboto@500"
+    id: font_72
+    size: 72
+    bpp: 4
+    glyphs: "0123456789-Aus"
+  # Material Design Icons (code points also in dashboard.h)
+  - file:
+      type: web
+      url: "https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/fonts/materialdesignicons-webfont.ttf"
+    id: font_icon_32
+    size: 32
+    bpp: 4
+    glyphs:
+      - "\U000F0210" # fan
+      - "\U000F081D" # fan-off
+      - "\U000F0319" # lan-disconnect
+      - "\U000F07D0" # home-assistant
+      - "\U000F0004" # account
+      - "\U000F0012" # account-off
+  - file:
+      type: web
+      url: "https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/fonts/materialdesignicons-webfont.ttf"
+    id: font_icon_56
+    size: 56
+    bpp: 4
+    glyphs:
+      - "\U000F0F9C" # home-import-outline (Zuluft)
+      - "\U000F0F9B" # home-export-outline (Abluft)
 
 lvgl:
   id: my_lvgl
   log_level: WARN
+  # Landscape 820x320. Must be set here, not on the display (LVGL rejects display rotation).
+  rotation: 90
 
+  # Colours: keep in sync with dash::COL_* in dashboard.h
+  theme:
+    label:
+      text_color: 0xE6EDF3
+      text_font: font_22
+
+  style_definitions:
+    - id: screen_style
+      bg_color: 0x0B0F14
+      bg_opa: COVER
+      border_width: 0
+      radius: 0
+      pad_all: 0
+    - id: card_style
+      bg_color: 0x161B22
+      bg_opa: COVER
+      border_color: 0x262C36
+      border_width: 1
+      radius: 14
+      pad_all: 12
+    - id: row_style
+      bg_color: 0x161B22
+      bg_opa: COVER
+      border_width: 0
+      radius: 10
+      pad_left: 14
+      pad_right: 14
+      pad_top: 0
+      pad_bottom: 0
+
+  on_idle:
+    - timeout: 60s
+      then:
+        - lvgl.page.show: page_main
 
   pages:
+    # =====================================================
+    # Page 1: Übersicht
+    # =====================================================
     - id: page_main
+      bg_color: 0x0B0F14
       widgets:
         - obj:
             width: 100%
             height: 100%
+            styles: screen_style
+            scrollable: false
             on_click:
               - lvgl.page.next:
                   animation: MOVE_LEFT
                   time: 300ms
-
             widgets:
-              # Linke Hälfte: Uhrzeit & Datum
-              - obj:
-                  align: LEFT_MID
-                  width: 50%
-                  height: 100%
-                  widgets:
-                    - label:
-                        id: label_time
-                        align: CENTER
-                        y: -20
-                        text: "12:00"
-                        text_font: font_time
-                    - label:
-                        id: label_date
-                        align: CENTER
-                        y: 35
-                        text: "01. Jan."
-                        text_font: font_date
+              # Header: time, room mode, local climate, HA connection
+              - label:
+                  id: label_time
+                  x: 12
+                  y: 6
+                  text: "--:--"
+                  text_font: font_40
+              - label:
+                  id: label_date
+                  align_to:
+                    id: label_time
+                    align: OUT_RIGHT_BOTTOM
+                    x: 10
+                    y: -6
+                  text: ""
+                  text_font: font_18
+                  text_color: 0x8B949E
+              - label:
+                  id: label_mode
+                  align: TOP_MID
+                  x: 10
+                  y: 14
+                  text: "--"
+                  text_font: font_28
+                  text_color: 0x2DD4BF
+              - label:
+                  id: label_local_summary
+                  align: TOP_RIGHT
+                  x: -52
+                  y: 18
+                  text: "--"
+                  text_font: font_22
+              - label:
+                  id: label_ha
+                  align: TOP_RIGHT
+                  x: -12
+                  y: 12
+                  text: "\U000F07D0"
+                  text_font: font_icon_32
+                  text_color: 0x8B949E
 
-              # Rechte Hälfte: BME680 Sensorwerte
-              - obj:
-                  align: RIGHT_MID
-                  width: 50%
-                  height: 100%
-                  layout:
-                    type: FLEX
-                    flex_flow: COLUMN
-                    flex_align_main: SPACE_EVENLY
-                    flex_align_cross: CENTER
-                  widgets:
-                    - obj:
-                        width: 90%
-                        height: 25%
-                        bg_color: 0x1e1e1e
-                        radius: 10
-                        widgets:
-                          - label:
-                              text: "Temp:"
-                              x: 10
-                              align: LEFT_MID
-                              text_color: 0x9ca3af
-                              text_font: font_small
-                          - label:
-                              id: label_local_temp
-                              text: "-- °C"
-                              x: -10
-                              align: RIGHT_MID
-                              text_color: 0xffffff
-                              text_font: font_large
-                    
-                    - obj:
-                        width: 90%
-                        height: 25%
-                        bg_color: 0x1e1e1e
-                        radius: 10
-                        widgets:
-                          - label:
-                              text: "Feuchte:"
-                              x: 10
-                              align: LEFT_MID
-                              text_color: 0x9ca3af
-                              text_font: font_small
-                          - label:
-                              id: label_local_hum
-                              text: "-- %"
-                              x: -10
-                              align: RIGHT_MID
-                              text_color: 0x03a9f4
-                              text_font: font_large
+              # One card per ventilation unit
+              - !include
+                file: packages/ui_device_card.yaml
+                vars: { key: buero, title: "Büro", x: 8 }
+              - !include
+                file: packages/ui_device_card.yaml
+                vars: { key: flur, title: "Flur", x: 279 }
+              - !include
+                file: packages/ui_device_card.yaml
+                vars: { key: wohnraum, title: "Wohnraum", x: 550 }
 
-                    - obj:
-                        width: 90%
-                        height: 25%
-                        bg_color: 0x1e1e1e
-                        radius: 10
-                        widgets:
-                          - label:
-                              text: "IAQ:"
-                              x: 10
-                              align: LEFT_MID
-                              text_color: 0x9ca3af
-                              text_font: font_small
-                          - label:
-                              id: label_local_iaq
-                              text: "--"
-                              x: -10
-                              align: RIGHT_MID
-                              text_color: 0xbb86fc
-                              text_font: font_large
+              # Footer: Smart-Automatik status of the room master
+              - label:
+                  id: label_auto_status
+                  align: BOTTOM_LEFT
+                  x: 14
+                  y: -16
+                  width: 740
+                  long_mode: DOT
+                  text: "--"
+                  text_font: font_22
+                  text_color: 0x8B949E
+              - label:
+                  align: BOTTOM_RIGHT
+                  x: -14
+                  y: -18
+                  text: "1/3"
+                  text_font: font_18
+                  text_color: 0x8B949E
 
-    - id: page_wrg_1
+    # =====================================================
+    # Page 2: Wärmerückgewinnung (sensors of the Wohnraum unit)
+    # =====================================================
+    - id: page_wrg
+      bg_color: 0x0B0F14
       widgets:
         - obj:
             width: 100%
             height: 100%
+            styles: screen_style
+            scrollable: false
             on_click:
               - lvgl.page.next:
                   animation: MOVE_LEFT
                   time: 300ms
-
             widgets:
               - label:
-                  text: "Wohnraumlüftung Status"
-                  align: TOP_MID
-                  y: 10
-                  text_font: font_large
-                  text_color: 0x03dac6
-              
+                  x: 14
+                  y: 12
+                  text: "Wärmerückgewinnung · Wohnraum"
+                  text_font: font_28
+              - label:
+                  align: TOP_RIGHT
+                  x: -14
+                  y: 18
+                  text: "2/3"
+                  text_font: font_18
+                  text_color: 0x8B949E
+
+              # Temperatures and efficiency
               - obj:
-                  align: CENTER
-                  y: 15
-                  width: 95%
-                  height: 80%
-                  bg_opa: 0  # Transparent
-                  layout:
-                    type: GRID
-                    grid_columns: [200, 200, 200, 200]
-                    grid_rows: [125, 125]
-                  
+                  x: 8
+                  y: 58
+                  width: 196
+                  height: 140
+                  styles: card_style
+                  clickable: false
+                  scrollable: false
                   widgets:
                     - label:
-                        id: label_vent_mode
-                        text: "Modus:\\n--"
-                        grid_cell_row_pos: 0
-                        grid_cell_column_pos: 0
-                        align: CENTER
-                        text_font: font_small
-
+                        text: "Außenluft"
+                        text_font: font_18
+                        text_color: 0x8B949E
                     - label:
-                        id: label_vent_intensity
-                        text: "Lüfter:\\n-- / 10"
-                        grid_cell_row_pos: 0
-                        grid_cell_column_pos: 1
-                        align: CENTER
-                        text_font: font_small
-
+                        id: label_wrg_outdoor
+                        align: BOTTOM_LEFT
+                        text: "--"
+                        text_font: font_48
+                        text_color: 0x38BDF8
+              - obj:
+                  x: 212
+                  y: 58
+                  width: 196
+                  height: 140
+                  styles: card_style
+                  clickable: false
+                  scrollable: false
+                  widgets:
                     - label:
-                        id: label_vent_temp
-                        text: "Temp:\\n-- °C"
-                        grid_cell_row_pos: 0
-                        grid_cell_column_pos: 2
-                        align: CENTER
-                        text_color: 0xcf6679
-
+                        text: "Zuluft nach WRG"
+                        text_font: font_18
+                        text_color: 0x8B949E
                     - label:
-                        id: label_vent_co2
-                        text: "CO2:\\n-- ppm"
-                        grid_cell_row_pos: 0
-                        grid_cell_column_pos: 3
-                        align: CENTER
-                        text_color: 0xbb86fc
-
+                        id: label_wrg_supply
+                        align: BOTTOM_LEFT
+                        text: "--"
+                        text_font: font_48
+                        text_color: 0x2DD4BF
+              - obj:
+                  x: 416
+                  y: 58
+                  width: 196
+                  height: 140
+                  styles: card_style
+                  clickable: false
+                  scrollable: false
+                  widgets:
                     - label:
-                        id: label_vent_humidity
-                        text: "Feuchte:\\n-- %"
-                        grid_cell_row_pos: 1
-                        grid_cell_column_pos: 0
-                        align: CENTER
-                        text_color: 0x03a9f4
-                              
+                        text: "Raumluft (Abluft)"
+                        text_font: font_18
+                        text_color: 0x8B949E
                     - label:
-                        id: label_vent_radar
-                        text: "Radar:\\n--"
-                        grid_cell_row_pos: 1
-                        grid_cell_column_pos: 1
-                        align: CENTER
-                        text_color: 0xffffff
-
+                        id: label_wrg_indoor
+                        align: BOTTOM_LEFT
+                        text: "--"
+                        text_font: font_48
+                        text_color: 0xF59E0B
+              - obj:
+                  x: 620
+                  y: 58
+                  width: 192
+                  height: 140
+                  styles: card_style
+                  clickable: false
+                  scrollable: false
+                  widgets:
                     - label:
-                        id: label_pid_status
-                        text: "Automatik aktiv:\\nIdle"
-                        grid_cell_row_pos: 1
-                        grid_cell_column_pos: 2
-                        grid_cell_column_span: 2
-                        align: CENTER
-                        text_color: 0x9ca3af
+                        text: "WRG-Effizienz"
+                        text_font: font_18
+                        text_color: 0x8B949E
+                    - label:
+                        id: label_wrg_efficiency
+                        align: BOTTOM_LEFT
+                        text: "--"
+                        text_font: font_48
+                        text_color: 0x22C55E
 
-    - id: page_diagnostics
+              # Room inputs
+              - obj:
+                  x: 8
+                  y: 208
+                  width: 262
+                  height: 102
+                  styles: card_style
+                  clickable: false
+                  scrollable: false
+                  widgets:
+                    - label:
+                        text: "Anwesenheit (Radar)"
+                        text_font: font_18
+                        text_color: 0x8B949E
+                    - label:
+                        id: label_presence_icon
+                        align: BOTTOM_LEFT
+                        text: "\U000F0012"
+                        text_font: font_icon_32
+                        text_color: 0x8B949E
+                    - label:
+                        id: label_presence
+                        align: BOTTOM_LEFT
+                        x: 42
+                        y: -4
+                        text: "--"
+                        text_font: font_22
+              - obj:
+                  x: 279
+                  y: 208
+                  width: 262
+                  height: 102
+                  styles: card_style
+                  clickable: false
+                  scrollable: false
+                  widgets:
+                    - label:
+                        text: "Klima-Koordination"
+                        text_font: font_18
+                        text_color: 0x8B949E
+                    - label:
+                        id: label_climate_coord
+                        align: BOTTOM_LEFT
+                        y: -4
+                        width: 236
+                        long_mode: DOT
+                        text: "--"
+                        text_font: font_22
+              - obj:
+                  x: 550
+                  y: 208
+                  width: 262
+                  height: 102
+                  styles: card_style
+                  clickable: false
+                  scrollable: false
+                  widgets:
+                    - label:
+                        text: "Fenstersperre"
+                        text_font: font_18
+                        text_color: 0x8B949E
+                    - label:
+                        id: label_window_lock
+                        align: BOTTOM_LEFT
+                        y: -4
+                        text: "--"
+                        text_font: font_22
+
+    # =====================================================
+    # Page 3: Raumklima am Display & System
+    # =====================================================
+    - id: page_system
+      bg_color: 0x0B0F14
       widgets:
         - obj:
             width: 100%
             height: 100%
+            styles: screen_style
+            scrollable: false
             on_click:
               - lvgl.page.next:
                   animation: MOVE_LEFT
                   time: 300ms
-            
             widgets:
               - label:
-                  text: "System-Diagnose & Effizienz"
-                  align: TOP_MID
-                  y: 10
-                  text_font: font_large
-                  text_color: 0xbb86fc
+                  x: 14
+                  y: 12
+                  text: "Raumklima am Display · System"
+                  text_font: font_28
+              - label:
+                  align: TOP_RIGHT
+                  x: -14
+                  y: 18
+                  text: "3/3"
+                  text_font: font_18
+                  text_color: 0x8B949E
 
+              # Local BME680
               - obj:
-                  align: CENTER
-                  y: 15
-                  width: 95%
-                  height: 80%
-                  bg_opa: 0 
-                  layout:
-                    type: GRID
-                    grid_columns: [200, 200, 200, 200]
-                    grid_rows: [125, 125]
-                  
+                  x: 8
+                  y: 54
+                  width: 196
+                  height: 96
+                  styles: card_style
+                  clickable: false
+                  scrollable: false
                   widgets:
                     - label:
-                        id: label_iaq_index
-                        text: "IAQ Index:\\n--"
-                        grid_cell_row_pos: 0
-                        grid_cell_column_pos: 0
-                        align: CENTER
-                        text_font: font_small
-                        text_color: 0x03dac6
-
+                        text: "Temperatur"
+                        text_font: font_18
+                        text_color: 0x8B949E
                     - label:
-                        id: label_efficiency
-                        text: "Effizienz:\\n-- %"
-                        grid_cell_row_pos: 0
-                        grid_cell_column_pos: 1
-                        align: CENTER
-                        text_font: font_small
-                        text_color: 0xffb74d
-
+                        id: label_local_temp
+                        align: BOTTOM_LEFT
+                        text: "-- °C"
+                        text_font: font_28
+              - obj:
+                  x: 212
+                  y: 54
+                  width: 196
+                  height: 96
+                  styles: card_style
+                  clickable: false
+                  scrollable: false
+                  widgets:
                     - label:
-                        id: label_zuluft_temp
-                        text: "Zuluft:\\n-- °C"
-                        grid_cell_row_pos: 0
-                        grid_cell_column_pos: 2
-                        align: CENTER
-                        text_font: font_small
-                        text_color: 0x64b5f6
-
+                        text: "Luftfeuchte"
+                        text_font: font_18
+                        text_color: 0x8B949E
                     - label:
-                        id: label_abluft_temp
-                        text: "Abluft:\\n-- °C"
-                        grid_cell_row_pos: 0
-                        grid_cell_column_pos: 3
-                        align: CENTER
-                        text_font: font_small
-                        text_color: 0xe57373
-
+                        id: label_local_hum
+                        align: BOTTOM_LEFT
+                        text: "-- %"
+                        text_font: font_28
+                        text_color: 0x38BDF8
+              - obj:
+                  x: 416
+                  y: 54
+                  width: 196
+                  height: 96
+                  styles: card_style
+                  clickable: false
+                  scrollable: false
+                  widgets:
                     - label:
-                        id: label_filter_status
-                        text: "Filter:\\nOK"
-                        grid_cell_row_pos: 1
-                        grid_cell_column_pos: 0
-                        grid_cell_column_span: 4
-                        align: CENTER
-                        text_font: font_large
-                        text_color: 0xffffff
+                        text: "IAQ (BME680)"
+                        text_font: font_18
+                        text_color: 0x8B949E
+                    - label:
+                        id: label_local_iaq
+                        align: BOTTOM_LEFT
+                        text: "--"
+                        text_font: font_28
+                        text_color: 0x2DD4BF
+              - obj:
+                  x: 620
+                  y: 54
+                  width: 192
+                  height: 96
+                  styles: card_style
+                  clickable: false
+                  scrollable: false
+                  widgets:
+                    - label:
+                        text: "Luftdruck"
+                        text_font: font_18
+                        text_color: 0x8B949E
+                    - label:
+                        id: label_local_pres
+                        align: BOTTOM_LEFT
+                        text: "-- hPa"
+                        text_font: font_28
+
+              # One diagnostics row per ventilation unit
+              - !include
+                file: packages/ui_device_row.yaml
+                vars: { key: buero, title: "Büro", y: 158 }
+              - !include
+                file: packages/ui_device_row.yaml
+                vars: { key: flur, title: "Flur", y: 214 }
+              - !include
+                file: packages/ui_device_row.yaml
+                vars: { key: wohnraum, title: "Wohnraum", y: 270 }

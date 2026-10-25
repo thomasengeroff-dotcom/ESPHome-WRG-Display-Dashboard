@@ -1,26 +1,21 @@
 substitutions:
   device_name: "wrg-dashboard"
   friendly_name: "WRG Dashboard"
-  # Diese Substitutions machen es einfach, das gezeigte Lüftungsgerät in ESPHome zu ändern
-  # (Konfigurierbar über das ESPHome Dashboard vor dem Kompilieren)
-  target_ventilation_device: "ESP-WRG-Lüftung 859670"
-  target_co2_sensor: "sensor.espwrglueftung_effektiver_co2_wert"
-  target_humidity_sensor: "sensor.espwrglueftung_scd41_luftfeuchtigkeit"
-  target_temp_sensor: "sensor.espwrglueftung_bmp390_temperatur"
-  target_pressure_sensor: "sensor.espwrglueftung_bmp390_luftdruck"
-  target_radar_sensor: "binary_sensor.espwrglueftung_radar_presence"
-  target_fan: "fan.espwrglueftung_luefter" # Placeholder if fan is added, but using select/number for controls
-  target_mode_select: "select.espwrglueftung_lueftermodus"
-  target_fan_intensity: "number.espwrglueftung_lufter_intensitat"
-  # Diagnostik Entitäten
-  target_iaq_sensor: "sensor.espwrglueftung_bme680_iaq_index"
-  target_efficiency_sensor: "sensor.espwrglueftung_warmeruckgewinnung_effizienz"
-  target_zuluft_temp: "sensor.espwrglueftung_temperatur_zuluft_innen"
-  target_abluft_temp: "sensor.espwrglueftung_temperatur_abluft_aussen"
-  target_filter_alarm: "binary_sensor.espwrglueftung_filterwechsel_alarm"
+  # HA entity prefixes of the VentoSync units shown on the cards
+  # (entity ids are e.g. fan.<prefix>_ventosync_hrv, number.<prefix>_lufter_intensitat).
+  device_1_prefix: "ventosync_dg_buero"
+  device_2_prefix: "ventosync_dg_flur"
+  device_3_prefix: "ventosync_dg_wohnraum"
+  # Room master (device ID 1): room mode and Smart-Automatik status
+  master_prefix: "ventosync_dg_buero"
+  master_area_prefix: "arbeitszimmer_ventosync_dg_buero"
+  # Unit with NTCs and radar for the Wärmerückgewinnung page
+  wrg_prefix: "ventosync_dg_wohnraum"
+  wrg_area_prefix: "dachgeschoss_wohnraum_ventosync_dg_wohnraum"
 
 esp32:
   board: esp32-s3-devkitc-1 # Standard S3 DevKit Profile
+  flash_size: 16MB # Qualia ESP32-S3 N16R8
   framework:
     type: esp-idf
     version: recommended
@@ -65,6 +60,12 @@ time:
   - platform: sntp
     id: sntp_time
     timezone: "Europe/Berlin"
+    on_time_sync:
+      - script.execute: refresh_clock
+    on_time:
+      - seconds: 0
+        then:
+          - script.execute: refresh_clock
 
 # ---------------------------------------------------------
 # BME680 Sensor & PCA9554 (Lokal am Dashboard)
@@ -82,6 +83,7 @@ esphome:
   friendly_name: ${friendly_name}
   includes:
     - qualia_init.h
+    - dashboard.h
 
   on_boot:
     priority: 800
@@ -103,72 +105,103 @@ sensor:
     temperature:
       name: "Dashboard Temperatur"
       id: local_temp
+      on_value:
+        - script.execute: refresh_local
     humidity:
       name: "Dashboard Feuchtigkeit"
       id: local_hum
+      on_value:
+        - script.execute: refresh_local
     pressure:
       name: "Dashboard Luftdruck"
       id: local_pres
+      on_value:
+        - lambda: 'dash::set_text(id(label_local_pres), dash::num(x, "%.0f hPa"));'
     iaq:
       name: "Dashboard IAQ"
       id: local_iaq
+      on_value:
+        - script.execute: refresh_local
 
+  # --- Wärmerückgewinnung (unit with NTCs) ---
   - platform: homeassistant
-    id: ha_iaq
-    entity_id: ${target_iaq_sensor}
+    id: ha_wrg_outdoor
+    entity_id: sensor.${wrg_prefix}_temp_zuluft_aussen
+    on_value:
+      - lambda: 'dash::set_text(id(label_wrg_outdoor), dash::num(x, "%.1f °C"));'
   - platform: homeassistant
-    id: ha_efficiency
-    entity_id: ${target_efficiency_sensor}
+    id: ha_wrg_indoor
+    entity_id: sensor.${wrg_prefix}_temp_abluft_innen
+    on_value:
+      - lambda: 'dash::set_text(id(label_wrg_indoor), dash::num(x, "%.1f °C"));'
   - platform: homeassistant
-    id: ha_zuluft_temp
-    entity_id: ${target_zuluft_temp}
+    id: ha_wrg_supply
+    entity_id: sensor.${wrg_area_prefix}_temp_zuluft_nach_wrg
+    on_value:
+      - lambda: 'dash::set_text(id(label_wrg_supply), dash::num(x, "%.1f °C"));'
   - platform: homeassistant
-    id: ha_abluft_temp
-    entity_id: ${target_abluft_temp}
-
-  - platform: homeassistant
-    id: ha_vent_intensity
-    entity_id: ${target_fan_intensity}
-  - platform: homeassistant
-    id: ha_vent_co2
-    entity_id: ${target_co2_sensor}
-  - platform: homeassistant
-    id: ha_vent_humidity
-    entity_id: ${target_humidity_sensor}
-  - platform: homeassistant
-    id: ha_vent_temp
-    entity_id: ${target_temp_sensor}
-  - platform: homeassistant
-    id: ha_vent_pressure
-    entity_id: ${target_pressure_sensor}
+    id: ha_wrg_efficiency
+    entity_id: sensor.${wrg_prefix}_wrg_effizienz
+    on_value:
+      - lambda: 'dash::set_text(id(label_wrg_efficiency), dash::num(x, "%.0f %%"));'
 
 # ---------------------------------------------------------
-# Home Assistant Sensoren (Daten vom Lüftungsgerät)
+# Home Assistant: room-wide states (from the room master)
 # ---------------------------------------------------------
 text_sensor:
   - platform: homeassistant
-    id: ha_vent_mode
-    entity_id: ${target_mode_select}
+    id: ha_room_mode
+    entity_id: select.${master_prefix}_luftermodus
+    on_value:
+      - lambda: 'dash::set_text(id(label_mode), dash::text_or(x));'
+  - platform: homeassistant
+    id: ha_auto_status
+    entity_id: sensor.${master_area_prefix}_automatik_status
+    on_value:
+      - lambda: 'dash::set_text(id(label_auto_status), dash::ascii_arrows(dash::text_or(x)));'
+  - platform: homeassistant
+    id: ha_climate_coord
+    entity_id: sensor.${master_area_prefix}_klima_koordination_status
+    on_value:
+      - lambda: 'dash::set_text(id(label_climate_coord), dash::text_or(x));'
+  - platform: homeassistant
+    id: ha_window_lock
+    entity_id: sensor.${master_prefix}_fenstersperre_aktiv
+    on_value:
+      - lambda: 'dash::set_text(id(label_window_lock), dash::text_or(x));'
 
 binary_sensor:
   - platform: homeassistant
-    id: ha_vent_radar
-    entity_id: ${target_radar_sensor}
+    id: ha_presence
+    entity_id: binary_sensor.${wrg_area_prefix}_radar_anwesenheit
+    on_state:
+      - lambda: |-
+          dash::set_text(id(label_presence), x ? "Anwesend" : "Niemand da");
+          dash::set_text(id(label_presence_icon), x ? dash::ICON_PRESENT : dash::ICON_ABSENT);
+          dash::set_color(id(label_presence_icon), x ? dash::COL_OK : dash::COL_MUTED);
 
-  # Hinweis: Die Erkennung ob der PID aktuell _regelt_, lässt sich am besten
-  # über den "pid_demand" oder die Differenz zum Grenzwert (z.B. auto_co2_threshold) abbilden.
-  # Wir importieren hier beispielhaft einen (fiktiven) PID Status Sensor, den du in HA anlegen müsstest.
-  - platform: homeassistant
-    id: ha_pid_co2_active
-    entity_id: binary_sensor.wrg_pid_co2_active
-
-  - platform: homeassistant
-    id: ha_pid_hum_active
-    entity_id: binary_sensor.wrg_pid_hum_active
-
-  - platform: homeassistant
-    id: ha_filter_alarm
-    entity_id: ${target_filter_alarm}
+script:
+  - id: refresh_local
+    then:
+      - lambda: |-
+          dash::set_text(id(label_local_temp), dash::num(id(local_temp).state, "%.1f °C"));
+          dash::set_text(id(label_local_hum), dash::num(id(local_hum).state, "%.0f %%"));
+          dash::set_text(id(label_local_iaq), dash::num(id(local_iaq).state, "%.0f"));
+          dash::set_text(id(label_local_summary),
+                         dash::num(id(local_temp).state, "%.1f°") + " · " + dash::num(id(local_hum).state, "%.0f%%") +
+                             " · IAQ " + dash::num(id(local_iaq).state, "%.0f"));
+  - id: refresh_clock
+    then:
+      - lambda: |-
+          auto now = id(sntp_time).now();
+          if (!now.is_valid())
+            return;
+          static const char *const DAYS[] = {"So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"};
+          char buf[24];
+          snprintf(buf, sizeof(buf), "%02d:%02d", now.hour, now.minute);
+          dash::set_text(id(label_time), buf);
+          snprintf(buf, sizeof(buf), "%s %02d.%02d.", DAYS[(now.day_of_week - 1) % 7], now.day_of_month, now.month);
+          dash::set_text(id(label_date), buf);
 
 # ---------------------------------------------------------
 # Display & Touch Konfiguration
@@ -176,11 +209,10 @@ binary_sensor:
 # Adafruit Qualia nutzt intern einen I2C Expander (TCA9554) für das SPI Init
 # des ST7701S. Da ESPHome das Bitbanging über I2C-Expander für SPI-TFTs noch
 # nicht nativ unterstützt, wird hier standard RGB-TFT deklariert.
-# Für einen realen Build auf dem Qualia bedarf es eines Custom C++ Init-Scripts!
+# Die Initialisierung übernimmt qualia_init.h (on_boot).
 display:
   - platform: rpi_dpi_rgb
     id: tft_display
-    rotation: 90
     color_order: RGB
     dimensions:
       width: 320
@@ -207,111 +239,33 @@ touchscreen:
   - platform: ft63x6
     id: my_touch
     i2c_id: i2c_bus
-    transform:
-      swap_xy: true
-      mirror_x: true
+    # No transform here: LVGL applies its own rotation to the touch coordinates.
     # We purposefully exclude the interrupt_pin because it resides on the PCA9554. 
     # ESPHome will poll the touch controller over I2C, avoiding any I2C bus contention 
     # with the custom qualia_init.h C++ display initialization routine.
 
-# Bind the LVGL UI
 packages:
   ui: !include dashboard_ui.yaml
+  device_1: !include
+    file: packages/ventosync_device.yaml
+    vars: { key: buero, prefix: "${device_1_prefix}" }
+  device_2: !include
+    file: packages/ventosync_device.yaml
+    vars: { key: flur, prefix: "${device_2_prefix}" }
+  device_3: !include
+    file: packages/ventosync_device.yaml
+    vars: { key: wohnraum, prefix: "${device_3_prefix}" }
 
-# ---------------------------------------------------------
-# UI Update Loop (Aktualisiert die LVGL Labels)
-# ---------------------------------------------------------
+# HA connection indicator in the header (values freeze while disconnected)
 interval:
-  - interval: 1s
+  - interval: 5s
     then:
-      - lvgl.label.update:
-          id: label_time
-          text:
-            format: "%02d:%02d"
-            args: ["id(sntp_time).now().hour", "id(sntp_time).now().minute"]
-      - lvgl.label.update:
-          id: label_date
-          text:
-            format: "%02d. %02d."
-            args:
-              ["id(sntp_time).now().day_of_month", "id(sntp_time).now().month"]
-      - lvgl.label.update:
-          id: label_local_temp
-          text:
-            format: "%.1f °C"
-            args: ["id(local_temp).state"]
-      - lvgl.label.update:
-          id: label_local_hum
-          text:
-            format: "%.1f %%"
-            args: ["id(local_hum).state"]
-      - lvgl.label.update:
-          id: label_local_iaq
-          text:
-            format: "%.0f"
-            args: ["id(local_iaq).state"]
-      - lvgl.label.update:
-          id: label_vent_mode
-          text:
-            format: "Modus:\n%s"
-            args: ["id(ha_vent_mode).state.c_str()"]
-      - lvgl.label.update:
-          id: label_vent_intensity
-          text:
-            format: "Lüfter:\n%.0f / 10"
-            args: ["id(ha_vent_intensity).state"]
-      - lvgl.label.update:
-          id: label_vent_temp
-          text:
-            format: "Temp:\n%.1f °C"
-            args: ["id(ha_vent_temp).state"]
-      - lvgl.label.update:
-          id: label_vent_co2
-          text:
-            format: "CO2:\n%.0f ppm"
-            args: ["id(ha_vent_co2).state"]
-      - lvgl.label.update:
-          id: label_vent_humidity
-          text:
-            format: "Feuchte:\n%.1f %%"
-            args: ["id(ha_vent_humidity).state"]
-      - lvgl.label.update:
-          id: label_vent_radar
-          text:
-            format: "Radar:\n%s"
-            args: ['id(ha_vent_radar).state ? "Ja" : "Nein"']
-      - lvgl.label.update:
-          id: label_pid_status
-          text:
-            format: "Automatik aktiv:\n%s"
-            args:
-              [
-                'id(ha_pid_co2_active).state ? "CO2 Regler" : (id(ha_pid_hum_active).state ? "Feuchteschutz" : "Idle (Kein Eingriff)")',
-              ]
-      - lvgl.label.update:
-          id: label_iaq_index
-          text:
-            format: "IAQ Index:\n%.0f"
-            args: ["id(ha_iaq).state"]
-      - lvgl.label.update:
-          id: label_efficiency
-          text:
-            format: "Effizienz:\n%.1f %%"
-            args: ["id(ha_efficiency).state"]
-      - lvgl.label.update:
-          id: label_zuluft_temp
-          text:
-            format: "Zuluft:\n%.1f °C"
-            args: ["id(ha_zuluft_temp).state"]
-      - lvgl.label.update:
-          id: label_abluft_temp
-          text:
-            format: "Abluft:\n%.1f °C"
-            args: ["id(ha_abluft_temp).state"]
-      - lvgl.label.update:
-          id: label_filter_status
-          text:
-            format: "Filter:\n%s"
-            args: ['id(ha_filter_alarm).state ? "WECHSELN!" : "OK"']
+      - if:
+          condition:
+            api.connected:
+          then:
+            - lambda: 'dash::set_color(id(label_ha), dash::COL_ACCENT);'
+          else:
+            - lambda: 'dash::set_color(id(label_ha), dash::COL_ALARM);'
 
 safe_mode:
