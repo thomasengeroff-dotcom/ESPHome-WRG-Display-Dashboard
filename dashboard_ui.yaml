@@ -120,9 +120,8 @@ lvgl:
             styles: screen_style
             scrollable: false
             on_click:
+              # No page animation: with software rotation every animation frame is a full redraw.
               - lvgl.page.next:
-                  animation: MOVE_LEFT
-                  time: 300ms
             widgets:
               # Header: time, room mode, local climate, HA connection
               - label:
@@ -207,9 +206,8 @@ lvgl:
             styles: screen_style
             scrollable: false
             on_click:
+              # No page animation: with software rotation every animation frame is a full redraw.
               - lvgl.page.next:
-                  animation: MOVE_LEFT
-                  time: 300ms
             widgets:
               - label:
                   x: 14
@@ -382,9 +380,8 @@ lvgl:
             styles: screen_style
             scrollable: false
             on_click:
+              # No page animation: with software rotation every animation frame is a full redraw.
               - lvgl.page.next:
-                  animation: MOVE_LEFT
-                  time: 300ms
             widgets:
               - label:
                   x: 14
