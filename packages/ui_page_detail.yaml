@@ -1,11 +1,11 @@
 # Detail page of the unit in dash::selected (opened from an overview card).
-#   top:    back button, unit name, device / Wi-Fi / firmware, override countdown
+#   top:    back button, unit name, device / Wi-Fi / firmware
 #   left:   current values (same logic as the overview card, dash::refresh_card)
 #   right:  24 h chart from the unit's GET /history (dash::render_chart)
 #   bottom: room mode and room level; sent to the room master, VentoSync syncs the room
 id: page_detail
 skip: true
-bg_color: 0x0B0F14
+bg_color: 0x000000
 widgets:
   - obj:
       width: 100%
@@ -35,29 +35,31 @@ widgets:
                   x: 38
                   text: "Übersicht"
                   text_font: font_18
-        - label:
-            id: detail_title
+        # Flex row: the info follows the unit name whatever its width
+        - obj:
             x: 160
             y: 10
-            text: "--"
-            text_font: font_28
-        - label:
-            id: detail_info
-            align_to:
-              id: detail_title
-              align: OUT_RIGHT_MID
-              x: 14
-            text: ""
-            text_font: font_18
-            text_color: 0x8B949E
-        - label:
-            id: detail_override
-            align: TOP_RIGHT
-            x: -14
-            y: 16
-            text: ""
-            text_font: font_18
-            text_color: 0x2DD4BF
+            width: SIZE_CONTENT
+            height: SIZE_CONTENT
+            styles: bare_style
+            clickable: false
+            scrollable: false
+            layout:
+              type: FLEX
+              flex_flow: ROW
+              flex_align_cross: END
+              pad_column: 14
+            widgets:
+              - label:
+                  id: detail_title
+                  text: "--"
+                  text_font: font_28
+              - label:
+                  id: detail_info
+                  pad_bottom: 4
+                  text: ""
+                  text_font: font_18
+                  text_color: 0xA9B4C0
 
         # ---------------- Current values ----------------
         - obj:
@@ -79,23 +81,31 @@ widgets:
                   align: TOP_RIGHT
                   text: "\U000F0319"
                   text_font: font_icon_32
-                  text_color: 0x8B949E
-              - label:
-                  id: detail_level
+                  text_color: 0xA9B4C0
+              - obj:
                   align: LEFT_MID
                   y: 4
-                  text: "--"
-                  text_font: font_72
-              - label:
-                  id: detail_level_max
-                  align_to:
-                    id: detail_level
-                    align: OUT_RIGHT_BOTTOM
-                    x: 4
-                    y: -12
-                  text: ""
-                  text_font: font_22
-                  text_color: 0x8B949E
+                  width: SIZE_CONTENT
+                  height: SIZE_CONTENT
+                  styles: bare_style
+                  clickable: false
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_cross: END
+                    pad_column: 6
+                  widgets:
+                    - label:
+                        id: detail_level
+                        text: "--"
+                        text_font: font_72
+                    - label:
+                        id: detail_level_max
+                        pad_bottom: 14
+                        text: ""
+                        text_font: font_22
+                        text_color: 0xA9B4C0
               - label:
                   id: detail_dir_icon
                   align: RIGHT_MID
@@ -109,19 +119,19 @@ widgets:
                   y: 34
                   text: "--"
                   text_font: font_22
-                  text_color: 0x8B949E
+                  text_color: 0xA9B4C0
               - label:
                   id: detail_rpm
                   align: BOTTOM_LEFT
                   text: "-- U/min"
                   text_font: font_18
-                  text_color: 0x8B949E
+                  text_color: 0xA9B4C0
               - label:
                   id: detail_filter
                   align: BOTTOM_RIGHT
                   text: "Filter -- d"
                   text_font: font_18
-                  text_color: 0x8B949E
+                  text_color: 0xA9B4C0
 
         # ---------------- 24 h chart ----------------
         - obj:
@@ -142,7 +152,7 @@ widgets:
                   styles: button_style
                   checked:
                     bg_color: 0x2DD4BF
-                    text_color: 0x0B0F14
+                    text_color: 0x000000
                   on_click:
                     - lambda: 'dash::chart_tab = dash::TAB_VENTILATION;'
                     - script.execute: refresh_chart
@@ -159,9 +169,12 @@ widgets:
                   styles: button_style
                   checked:
                     bg_color: 0x2DD4BF
-                    text_color: 0x0B0F14
+                    text_color: 0x000000
+                  # The LVGL theme's disabled style would win over button_style otherwise
                   disabled:
-                    text_color: 0x484F58
+                    bg_color: 0x161B22
+                    bg_opa: COVER
+                    text_color: 0x5A6470
                   on_click:
                     - lambda: 'dash::chart_tab = dash::TAB_TEMPERATURE;'
                     - script.execute: refresh_chart
@@ -175,21 +188,21 @@ widgets:
                   y: 6
                   text: ""
                   text_font: font_18
-                  text_color: 0x8B949E
+                  text_color: 0xA9B4C0
               - label:
                   id: detail_y_max
                   x: 0
                   y: 34
                   text: ""
                   text_font: font_18
-                  text_color: 0x8B949E
+                  text_color: 0xA9B4C0
               - label:
                   id: detail_y_min
                   x: 0
                   y: 106
                   text: ""
                   text_font: font_18
-                  text_color: 0x8B949E
+                  text_color: 0xA9B4C0
               # The lv_chart is created in here by dash::render_chart
               - obj:
                   id: detail_chart_box
@@ -197,9 +210,7 @@ widgets:
                   y: 38
                   width: 488
                   height: 88
-                  bg_opa: TRANSP
-                  border_width: 0
-                  pad_all: 0
+                  styles: bare_style
                   clickable: false
                   scrollable: false
               - obj:
@@ -207,9 +218,7 @@ widgets:
                   y: 128
                   width: 488
                   height: 22
-                  bg_opa: TRANSP
-                  border_width: 0
-                  pad_all: 0
+                  styles: bare_style
                   clickable: false
                   scrollable: false
                   layout:
@@ -251,7 +260,7 @@ widgets:
                   y: -2
                   text: "Modus · ganzer Raum"
                   text_font: font_18
-                  text_color: 0x8B949E
+                  text_color: 0xA9B4C0
               - button:
                   id: detail_mode_0
                   x: 0
@@ -261,7 +270,7 @@ widgets:
                   styles: button_style
                   checked:
                     bg_color: 0x2DD4BF
-                    text_color: 0x0B0F14
+                    text_color: 0x000000
                   on_click:
                     - script.execute: { id: send_mode, mode_index: 0 }
                   widgets:
@@ -275,7 +284,7 @@ widgets:
                   styles: button_style
                   checked:
                     bg_color: 0x2DD4BF
-                    text_color: 0x0B0F14
+                    text_color: 0x000000
                   on_click:
                     - script.execute: { id: send_mode, mode_index: 1 }
                   widgets:
@@ -289,7 +298,7 @@ widgets:
                   styles: button_style
                   checked:
                     bg_color: 0x2DD4BF
-                    text_color: 0x0B0F14
+                    text_color: 0x000000
                   on_click:
                     - script.execute: { id: send_mode, mode_index: 2 }
                   widgets:
@@ -303,7 +312,7 @@ widgets:
                   styles: button_style
                   checked:
                     bg_color: 0x2DD4BF
-                    text_color: 0x0B0F14
+                    text_color: 0x000000
                   on_click:
                     - script.execute: { id: send_mode, mode_index: 3 }
                   widgets:
@@ -317,7 +326,7 @@ widgets:
                   styles: button_style
                   checked:
                     bg_color: 0xEF4444
-                    text_color: 0x0B0F14
+                    text_color: 0x000000
                   on_click:
                     - script.execute: { id: send_mode, mode_index: 4 }
                   widgets:
@@ -342,7 +351,7 @@ widgets:
                   long_mode: DOT
                   text: "Stufe · ganzer Raum"
                   text_font: font_18
-                  text_color: 0x8B949E
+                  text_color: 0xA9B4C0
               - button:
                   id: detail_level_down
                   x: 0

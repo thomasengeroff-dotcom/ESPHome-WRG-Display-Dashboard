@@ -18,7 +18,7 @@ obj:
         x: 150
         text: "--"
         text_font: font_18
-        text_color: 0x8B949E
+        text_color: 0xA9B4C0
     - label:
         id: ${key}_sys_wifi
         align: RIGHT_MID
@@ -30,4 +30,4 @@ obj:
         align: RIGHT_MID
         text: "--"
         text_font: font_18
-        text_color: 0x8B949E
+        text_color: 0xA9B4C0

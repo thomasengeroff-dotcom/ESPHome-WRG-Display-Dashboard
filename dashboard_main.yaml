@@ -202,6 +202,8 @@ binary_sensor:
   - platform: homeassistant
     id: ha_presence
     entity_id: binary_sensor.${wrg_area_prefix}_radar_anwesenheit
+    # Without this the first state from HA does not fire on_state
+    trigger_on_initial_state: true
     on_state:
       - lambda: |-
           dash::set_text(id(label_presence), x ? "Anwesend" : "Niemand da");
@@ -300,12 +302,14 @@ script:
           dash::set_text(id(detail_ctl_level), dash::num(level, "%.0f"));
           dash::set_color(id(detail_ctl_level), pending ? dash::COL_ACCENT : dash::COL_TEXT);
           // In Smart-Automatik a level starts the room-wide override (VentoSync level button)
-          dash::set_text(id(detail_ctl_caption),
-                         mode == 0 ? "Stufe · übersteuert " + dash::num(id(ha_override_duration).state, "%.0f") + " min"
-                                   : std::string("Stufe · ganzer Raum"));
           const float remaining = id(ha_override_remaining).state;
-          dash::set_text(id(detail_override),
-                         remaining > 0 ? "Übersteuerung noch " + dash::num(remaining, "%.0f") + " min" : std::string(""));
+          std::string caption = "Stufe · ganzer Raum";
+          if (remaining > 0)
+            caption = "Übersteuert · noch " + dash::num(remaining, "%.0f") + " min";
+          else if (mode == 0)
+            caption = "+/- übersteuert " + dash::num(id(ha_override_duration).state, "%.0f") + " min";
+          dash::set_text(id(detail_ctl_caption), caption);
+          dash::set_color(id(detail_ctl_caption), remaining > 0 ? dash::COL_ACCENT : dash::COL_MUTED);
   - id: send_mode
     mode: restart
     parameters:
@@ -360,9 +364,12 @@ script:
           dash::set_text(id(label_local_temp), dash::num(id(local_temp).state, "%.1f °C"));
           dash::set_text(id(label_local_hum), dash::num(id(local_hum).state, "%.0f %%"));
           dash::set_text(id(label_local_iaq), dash::num(id(local_iaq).state, "%.0f"));
+          // Header summary only while the BME680 delivers values
           dash::set_text(id(label_local_summary),
-                         dash::num(id(local_temp).state, "%.1f°") + " · " + dash::num(id(local_hum).state, "%.0f%%") +
-                             " · IAQ " + dash::num(id(local_iaq).state, "%.0f"));
+                         std::isnan(id(local_temp).state)
+                             ? std::string("")
+                             : dash::num(id(local_temp).state, "%.1f°") + " · " + dash::num(id(local_hum).state, "%.0f%%") +
+                                   " · IAQ " + dash::num(id(local_iaq).state, "%.0f"));
   - id: refresh_clock
     then:
       - lambda: |-

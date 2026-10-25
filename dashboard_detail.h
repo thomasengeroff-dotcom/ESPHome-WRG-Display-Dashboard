@@ -144,7 +144,7 @@ inline void history_parse(int device, int status, const std::string &body) {
 enum ChartTab { TAB_VENTILATION = 0, TAB_TEMPERATURE = 1 };
 inline int chart_tab = TAB_VENTILATION;
 
-static const uint32_t COL_GRID = 0x262C36;
+static const uint32_t COL_GRID = 0x1A2028;  // the panel renders dark greys much brighter
 static const uint32_t COL_DEMAND = 0xA78BFA;
 static const uint32_t COL_CO2 = 0xF472B6;
 
@@ -282,6 +282,9 @@ inline void render_chart(const ChartUi &ui) {
       float value = last / cs->scale;
       if (cs->channel == CH_DEMAND)
         value = last / 10.0f;
+      // The newest bucket is a 5-min mean (e.g. 1.6 after 3 -> 1): show the level the unit runs now
+      if (cs->channel == CH_LEVEL && current().level != nullptr && !std::isnan(current().level->state))
+        value = current().level->state;
       set_text(ui.legend[legend], std::string(cs->name) + " " + num(value, cs->fmt));
       set_color(ui.legend[legend], cs->color);
       legend++;

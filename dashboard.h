@@ -12,8 +12,8 @@
 namespace dash {
 
 // Colour palette (keep in sync with the style_definitions in dashboard_ui.yaml)
-static const uint32_t COL_TEXT = 0xE6EDF3;
-static const uint32_t COL_MUTED = 0x8B949E;
+static const uint32_t COL_TEXT = 0xFFFFFF;
+static const uint32_t COL_MUTED = 0xA9B4C0;
 static const uint32_t COL_ACCENT = 0x2DD4BF;
 static const uint32_t COL_ZULUFT = 0x38BDF8;
 static const uint32_t COL_ABLUFT = 0xF59E0B;

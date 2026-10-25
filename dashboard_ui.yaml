@@ -77,28 +77,35 @@ lvgl:
   # Landscape 820x320. Must be set here, not on the display (LVGL rejects display rotation).
   rotation: 90
 
-  # Colours: keep in sync with dash::COL_* in dashboard.h
-  theme:
-    label:
-      text_color: 0xE6EDF3
-      text_font: font_22
-
+  # Colours: keep in sync with dash::COL_* in dashboard.h.
+  # Text colour/font are set on the containers (screen, card, row, button) and inherited
+  # by their labels - a label theme would override the button's own (checked) text style.
   style_definitions:
     - id: screen_style
-      bg_color: 0x0B0F14
+      bg_color: 0x000000
       bg_opa: COVER
       border_width: 0
       radius: 0
       pad_all: 0
+      text_color: 0xFFFFFF
+      text_font: font_22
+    # Invisible layout container (flex rows of labels whose width changes at runtime)
+    - id: bare_style
+      bg_opa: TRANSP
+      border_width: 0
+      radius: 0
+      pad_all: 0
+      text_color: 0xFFFFFF
+    # No borders: the panel renders dark greys as bright cyan lines
     - id: card_style
-      bg_color: 0x161B22
+      bg_color: 0x12171E
       bg_opa: COVER
-      border_color: 0x262C36
-      border_width: 1
+      border_width: 0
       radius: 14
       pad_all: 12
+      text_color: 0xFFFFFF
     - id: row_style
-      bg_color: 0x161B22
+      bg_color: 0x12171E
       bg_opa: COVER
       border_width: 0
       radius: 10
@@ -106,16 +113,17 @@ lvgl:
       pad_right: 14
       pad_top: 0
       pad_bottom: 0
+      text_color: 0xFFFFFF
     - id: button_style
-      bg_color: 0x21262D
+      bg_color: 0x252D38
       bg_opa: COVER
-      border_color: 0x30363D
-      border_width: 1
+      border_width: 0
       radius: 10
       shadow_width: 0
       pad_all: 0
-      text_color: 0xE6EDF3
+      text_color: 0xFFFFFF
       text_font: font_18
+      bg_grad_dir: NONE
 
   on_idle:
     - timeout: 60s
@@ -128,7 +136,7 @@ lvgl:
     # Page 1: Übersicht
     # =====================================================
     - id: page_main
-      bg_color: 0x0B0F14
+      bg_color: 0x000000
       widgets:
         - obj:
             width: 100%
@@ -140,22 +148,31 @@ lvgl:
               - lvgl.page.show: page_wrg
             widgets:
               # Header: time, room mode, local climate, HA connection
-              - label:
-                  id: label_time
+              # Flex row: the date follows the time whatever its width
+              - obj:
                   x: 12
                   y: 6
-                  text: "--:--"
-                  text_font: font_40
-              - label:
-                  id: label_date
-                  align_to:
-                    id: label_time
-                    align: OUT_RIGHT_BOTTOM
-                    x: 10
-                    y: -6
-                  text: ""
-                  text_font: font_18
-                  text_color: 0x8B949E
+                  width: SIZE_CONTENT
+                  height: SIZE_CONTENT
+                  styles: bare_style
+                  clickable: false
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_cross: END
+                    pad_column: 10
+                  widgets:
+                    - label:
+                        id: label_time
+                        text: "--:--"
+                        text_font: font_40
+                    - label:
+                        id: label_date
+                        pad_bottom: 6
+                        text: ""
+                        text_font: font_18
+                        text_color: 0xA9B4C0
               - label:
                   id: label_mode
                   align: TOP_MID
@@ -169,7 +186,7 @@ lvgl:
                   align: TOP_RIGHT
                   x: -52
                   y: 18
-                  text: "--"
+                  text: ""
                   text_font: font_22
               - label:
                   id: label_ha
@@ -178,7 +195,7 @@ lvgl:
                   y: 12
                   text: "\U000F07D0"
                   text_font: font_icon_32
-                  text_color: 0x8B949E
+                  text_color: 0xA9B4C0
 
               # One card per ventilation unit
               - !include
@@ -201,20 +218,20 @@ lvgl:
                   long_mode: DOT
                   text: "--"
                   text_font: font_22
-                  text_color: 0x8B949E
+                  text_color: 0xA9B4C0
               - label:
                   align: BOTTOM_RIGHT
                   x: -14
                   y: -18
                   text: "1/3"
                   text_font: font_18
-                  text_color: 0x8B949E
+                  text_color: 0xA9B4C0
 
     # =====================================================
     # Page 2: Wärmerückgewinnung (sensors of the Wohnraum unit)
     # =====================================================
     - id: page_wrg
-      bg_color: 0x0B0F14
+      bg_color: 0x000000
       widgets:
         - obj:
             width: 100%
@@ -236,7 +253,7 @@ lvgl:
                   y: 18
                   text: "2/3"
                   text_font: font_18
-                  text_color: 0x8B949E
+                  text_color: 0xA9B4C0
 
               # Temperatures and efficiency
               - obj:
@@ -251,7 +268,7 @@ lvgl:
                     - label:
                         text: "Außenluft"
                         text_font: font_18
-                        text_color: 0x8B949E
+                        text_color: 0xA9B4C0
                     - label:
                         id: label_wrg_outdoor
                         align: BOTTOM_LEFT
@@ -270,7 +287,7 @@ lvgl:
                     - label:
                         text: "Zuluft nach WRG"
                         text_font: font_18
-                        text_color: 0x8B949E
+                        text_color: 0xA9B4C0
                     - label:
                         id: label_wrg_supply
                         align: BOTTOM_LEFT
@@ -289,7 +306,7 @@ lvgl:
                     - label:
                         text: "Raumluft (Abluft)"
                         text_font: font_18
-                        text_color: 0x8B949E
+                        text_color: 0xA9B4C0
                     - label:
                         id: label_wrg_indoor
                         align: BOTTOM_LEFT
@@ -308,7 +325,7 @@ lvgl:
                     - label:
                         text: "WRG-Effizienz"
                         text_font: font_18
-                        text_color: 0x8B949E
+                        text_color: 0xA9B4C0
                     - label:
                         id: label_wrg_efficiency
                         align: BOTTOM_LEFT
@@ -329,13 +346,13 @@ lvgl:
                     - label:
                         text: "Anwesenheit (Radar)"
                         text_font: font_18
-                        text_color: 0x8B949E
+                        text_color: 0xA9B4C0
                     - label:
                         id: label_presence_icon
                         align: BOTTOM_LEFT
                         text: "\U000F0012"
                         text_font: font_icon_32
-                        text_color: 0x8B949E
+                        text_color: 0xA9B4C0
                     - label:
                         id: label_presence
                         align: BOTTOM_LEFT
@@ -355,7 +372,7 @@ lvgl:
                     - label:
                         text: "Klima-Koordination"
                         text_font: font_18
-                        text_color: 0x8B949E
+                        text_color: 0xA9B4C0
                     - label:
                         id: label_climate_coord
                         align: BOTTOM_LEFT
@@ -376,7 +393,7 @@ lvgl:
                     - label:
                         text: "Fenstersperre"
                         text_font: font_18
-                        text_color: 0x8B949E
+                        text_color: 0xA9B4C0
                     - label:
                         id: label_window_lock
                         align: BOTTOM_LEFT
@@ -388,7 +405,7 @@ lvgl:
     # Page 3: Raumklima am Display & System
     # =====================================================
     - id: page_system
-      bg_color: 0x0B0F14
+      bg_color: 0x000000
       widgets:
         - obj:
             width: 100%
@@ -410,7 +427,7 @@ lvgl:
                   y: 18
                   text: "3/3"
                   text_font: font_18
-                  text_color: 0x8B949E
+                  text_color: 0xA9B4C0
 
               # Local BME680
               - obj:
@@ -425,7 +442,7 @@ lvgl:
                     - label:
                         text: "Temperatur"
                         text_font: font_18
-                        text_color: 0x8B949E
+                        text_color: 0xA9B4C0
                     - label:
                         id: label_local_temp
                         align: BOTTOM_LEFT
@@ -443,7 +460,7 @@ lvgl:
                     - label:
                         text: "Luftfeuchte"
                         text_font: font_18
-                        text_color: 0x8B949E
+                        text_color: 0xA9B4C0
                     - label:
                         id: label_local_hum
                         align: BOTTOM_LEFT
@@ -462,7 +479,7 @@ lvgl:
                     - label:
                         text: "IAQ (BME680)"
                         text_font: font_18
-                        text_color: 0x8B949E
+                        text_color: 0xA9B4C0
                     - label:
                         id: label_local_iaq
                         align: BOTTOM_LEFT
@@ -481,7 +498,7 @@ lvgl:
                     - label:
                         text: "Luftdruck"
                         text_font: font_18
-                        text_color: 0x8B949E
+                        text_color: 0xA9B4C0
                     - label:
                         id: label_local_pres
                         align: BOTTOM_LEFT

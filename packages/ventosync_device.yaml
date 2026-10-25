@@ -61,7 +61,7 @@ text_sensor:
     id: ${key}_config
     entity_id: sensor.${prefix}_gerate_konfiguration
     on_value:
-      - lambda: 'dash::set_text(id(${key}_sys_config), dash::text_or(x));'
+      - lambda: 'dash::set_text(id(${key}_sys_config), dash::short_config(x));'
       - script.execute: ${key}_refresh
   # Used to fetch the unit's 24 h history from its web dashboard
   - platform: homeassistant
@@ -95,5 +95,7 @@ binary_sensor:
   - platform: homeassistant
     id: ${key}_filter_alarm
     entity_id: binary_sensor.${prefix}_filterwechsel_alarm
+    # Without this the first state from HA does not fire on_state
+    trigger_on_initial_state: true
     on_state:
       - script.execute: ${key}_refresh

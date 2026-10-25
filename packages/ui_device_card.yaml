@@ -23,23 +23,32 @@ obj:
         align: TOP_RIGHT
         text: "\U000F0319"
         text_font: font_icon_32
-        text_color: 0x8B949E
-    - label:
-        id: ${key}_lbl_level
+        text_color: 0xA9B4C0
+    # Flex row: "/10" follows the level whatever its width ("3", "10", "Aus")
+    - obj:
         align: LEFT_MID
         y: 4
-        text: "--"
-        text_font: font_72
-    - label:
-        id: ${key}_lbl_level_max
-        align_to:
-          id: ${key}_lbl_level
-          align: OUT_RIGHT_BOTTOM
-          x: 4
-          y: -12
-        text: ""
-        text_font: font_22
-        text_color: 0x8B949E
+        width: SIZE_CONTENT
+        height: SIZE_CONTENT
+        styles: bare_style
+        clickable: false
+        scrollable: false
+        layout:
+          type: FLEX
+          flex_flow: ROW
+          flex_align_cross: END
+          pad_column: 6
+        widgets:
+          - label:
+              id: ${key}_lbl_level
+              text: "--"
+              text_font: font_72
+          - label:
+              id: ${key}_lbl_level_max
+              pad_bottom: 14
+              text: ""
+              text_font: font_22
+              text_color: 0xA9B4C0
     - label:
         id: ${key}_lbl_dir_icon
         align: RIGHT_MID
@@ -53,16 +62,16 @@ obj:
         y: 34
         text: "--"
         text_font: font_22
-        text_color: 0x8B949E
+        text_color: 0xA9B4C0
     - label:
         id: ${key}_lbl_rpm
         align: BOTTOM_LEFT
         text: "-- U/min"
         text_font: font_18
-        text_color: 0x8B949E
+        text_color: 0xA9B4C0
     - label:
         id: ${key}_lbl_filter
         align: BOTTOM_RIGHT
         text: "Filter -- d"
         text_font: font_18
-        text_color: 0x8B949E
+        text_color: 0xA9B4C0

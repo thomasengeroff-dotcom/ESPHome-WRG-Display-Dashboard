@@ -18,7 +18,7 @@ Die Benutzeroberfläche wurde mit **LVGL (Light and Versatile Graphics Library)*
   - **Übersicht**: Uhrzeit, Raummodus, lokales Raumklima und je eine Karte pro Lüftungsgerät (online/aus, Lüfterstufe, Richtung Zuluft/Abluft, Drehzahl, Filter-Betriebstage bzw. Filterwechsel-Alarm) sowie der Smart-Automatik-Status des Masters. **Tippen auf eine Karte öffnet die Detailseite des Geräts.**
   - **Detailseite**: aktuelle Werte des Geräts (Gerät/Phase, WLAN, Firmware), ein **24-h-Verlauf** wie im VentoSync-Web-Dashboard (Reiter *Lüftung*: Stufe, Bedarf, CO2; Reiter *Temperaturen*: Außenluft, Zuluft nach WRG, Abluft, WRG-Wirkungsgrad, nur bei Geräten mit NTCs) und die **Bedienung**:
     - **Modus** (Automatik, WRG, Durchlüften, Stoßlüften, Aus) und **Lüfterstufe** (−/+) gelten für den ganzen Raum und werden über Home Assistant an den Raum-Master geschickt; VentoSync gleicht die übrigen Geräte per ESP-NOW an.
-    - In Smart-Automatik startet eine Stufenänderung die raumweite Übersteuerung (wie die Stufen-Taste am Gerät, Dauer laut *Smart-Automatik: Übersteuerung Dauer*); die Restzeit steht oben rechts.
+    - In Smart-Automatik startet eine Stufenänderung die raumweite Übersteuerung (wie die Stufen-Taste am Gerät, Dauer laut *Smart-Automatik: Übersteuerung Dauer*); die Restzeit steht dann über den −/+-Knöpfen.
     - Mehrere schnelle Tipps auf −/+ werden zu einer Änderung zusammengefasst.
   - **Wärmerückgewinnung**: Außenluft, Zuluft nach WRG, Raumluft und WRG-Effizienz des Geräts mit NTCs, dazu Radar-Anwesenheit, Klima-Koordination und Fenstersperre.
   - **Raumklima & System**: lokale BME680-Werte und pro Gerät Konfiguration (Gerät/Phase), WLAN-Signal und Firmware-Version.
@@ -61,7 +61,8 @@ Die Ansteuerung eines ST7701S RGB-Displays mit einem Adafruit Qualia Board unter
 3. **LVGL Integration**: Die Benutzeroberfläche ist deklarativ in der `dashboard_ui.yaml` strukturiert; der Framebuffer liegt im Octal-PSRAM.
    - **Rotation**: Das Querformat wird mit `rotation: 90` in der **LVGL**-Konfiguration eingestellt, nicht am Display (ESPHome lehnt eine Display-Rotation zusammen mit LVGL ab). LVGL dreht dabei auch die Touch-Koordinaten, deshalb hat der Touchscreen **keine** eigene `transform`. Die Rotation erfolgt in Software; der erste Bildaufbau nach dem Start dauert dadurch etwa eine Sekunde.
    - **Aktualisierung**: Die Labels werden aus den `on_value`-Triggern der Home-Assistant-Sensoren aktualisiert, nur bei Änderung (`dashboard.h`). Fehlende Werte erscheinen als `--`.
-   - **Schriften**: Roboto mit `bpp: 4` (Kantenglättung) und zusätzlich den deutschen Umlauten, die im Standard-Glyphensatz von ESPHome fehlen. Symbole (Lüfter, Zu-/Abluft, Home Assistant, Anwesenheit) kommen aus den Material Design Icons. Zahlen-Schriften enthalten nur die benötigten Zeichen, um Flash zu sparen.
+   - **Farben & Kontrast**: Das Panel stellt dunkle Grautöne deutlich heller und bläulich dar. Deshalb: echtes Schwarz als Hintergrund, Karten ohne Rahmen, reines Weiß für Text. Textfarbe und Schrift werden an den Containern (Seite, Karte, Knopf) gesetzt und von den Labels geerbt – ein `theme: label` würde die Schrift und die dunkle Schrift aktiver Knöpfe überschreiben.
+- **Schriften**: Roboto mit `bpp: 4` (Kantenglättung) und zusätzlich den deutschen Umlauten, die im Standard-Glyphensatz von ESPHome fehlen. Symbole (Lüfter, Zu-/Abluft, Home Assistant, Anwesenheit) kommen aus den Material Design Icons. Zahlen-Schriften enthalten nur die benötigten Zeichen, um Flash zu sparen.
 
 ## 📂 Ordnerstruktur & Dateien
 
