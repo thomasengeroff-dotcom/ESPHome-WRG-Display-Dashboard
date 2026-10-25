@@ -8,9 +8,9 @@ Ich habe sonst keine OpenSource Projekte finden können, welche dieses Display &
 
 ## 📖 Projektbeschreibung
 
-Dieses Projekt stellt ein modernes Touch-Dashboard zur Verfügung, welches lokal Sensordaten (BME680) erfasst und gleichzeitig als Fernbedienung und Anzeige für ein vernetzte Lüftungsgeräte ("ESPHome-Wohnraumlueftung") über Home Assistant dient.
-Die Benutzeroberfläche wurde mit **LVGL (Light and Versatile Graphics Library)** umgesetzt und bietet flüssige Seitenübergänge und eine ansprechende Darstellung auf einem hochauflösenden "Rectangle Bar" Display.
-(Achtung: Die LVGL-UI ist noch nicht fertiggestellt. Es gibt bereits eine funktionierende YAML-basierte UI, die aber noch nicht viel kann.)
+Dieses Projekt stellt ein Touch-Dashboard zur Verfügung, welches lokal Sensordaten (BME680) erfasst und die vernetzten Lüftungsgeräte meines [VentoSync](https://github.com/thomasengeroff-dotcom/ESPHome-Wohnraumlueftung)-Projekts ("ESPHome-Wohnraumlueftung") über Home Assistant übersichtlich anzeigt.
+Die Benutzeroberfläche wurde mit **LVGL (Light and Versatile Graphics Library)** deklarativ in YAML umgesetzt und läuft im Querformat auf dem "Rectangle Bar" Display.
+Aktuell ist das Dashboard eine reine Anzeige; eine Steuerung der Geräte (Modus, Stufe) per Touch ist noch nicht umgesetzt. Der Ordner `ui/` enthält einen ersten, noch nicht eingebundenen Entwurf aus EEZ Studio.
 
 ## ✨ Features
 
@@ -19,7 +19,8 @@ Die Benutzeroberfläche wurde mit **LVGL (Light and Versatile Graphics Library)*
   - **Wärmerückgewinnung**: Außenluft, Zuluft nach WRG, Raumluft und WRG-Effizienz des Geräts mit NTCs, dazu Radar-Anwesenheit, Klima-Koordination und Fenstersperre.
   - **Raumklima & System**: lokale BME680-Werte und pro Gerät Konfiguration (Gerät/Phase), WLAN-Signal und Firmware-Version.
 - **Lokale Sensorik**: Einbindung eines lokalen BME680-Sensors zur Überwachung der Raumluftqualität am Ort des Displays.
-- **Home Assistant Integration**: Nahtlose Anbindung an Home Assistant zum Lesen der Lüftungssensoren und -zustände.
+- **Home Assistant Integration**: Liest die Zustände und Sensoren der VentoSync-Geräte über die ESPHome Native API (verschlüsselt). Die Anzeige aktualisiert sich ereignisgesteuert, sobald Home Assistant einen neuen Wert meldet; ein Symbol in der Kopfzeile zeigt, ob die Verbindung zu Home Assistant steht.
+- **Mehrere Geräte**: Jedes Lüftungsgerät wird über ein wiederverwendbares Paket eingebunden (siehe [Weiteres Gerät hinzufügen](#-weiteres-gerät-hinzufügen)).
 - **Custom Display Initialisierung**: C++ basierte SPI-Initialisierung (Bitbanging) über einen I2C-Expander, da alle regulären Pins für das RGB-666 Interface benötigt werden.
 
 ## 🛠 Verwendete Hardware
@@ -28,9 +29,9 @@ Das Projekt nutzt eine sehr spezifische Hardware-Kombination, um das RGB-Display
 
 1. **Adafruit Qualia ESP32-S3 for TTL RGB-666 Displays**
    - Ein dediziertes Entwicklungsboard von Adafruit, das speziell für große RGB-Displays entwickelt wurde.
-   - Bietet ausreichend PSRAM (Octal-Mode), was für den Framebuffer von LVGL bei solch großen Auflösungen zwingend erforderlich ist.
+   - ESP32-S3 mit **16 MB Flash und 8 MB PSRAM** (Octal-Mode). Das PSRAM ist für den Framebuffer von LVGL bei dieser Auflösung zwingend erforderlich.
 2. **Rectangle Bar RGB Display (TL032FWV01CT-I1440A)**
-   - Auflösung: **320 x 820 Pixel** (Bar-Type Format)
+   - Auflösung: **320 x 820 Pixel** nativ (Bar-Type Format), vom Dashboard um 90° gedreht als **820 x 320** im Querformat genutzt
    - Treiber-IC: **ST7701S**
    - Farbtiefe: RGB-666 (angesteuert als RGB565 in ESPHome)
    - *Anschluss:* Wird über ein 40-Pin FPC-Kabel direkt auf das Qualia-Board gesteckt.
@@ -38,9 +39,9 @@ Das Projekt nutzt eine sehr spezifische Hardware-Kombination, um das RGB-Display
    - Auf dem Adafruit Qualia Board verbaut (I2C-Adresse `0x3F`).
    - Da die 24-Bit RGB-Bilddaten nahezu alle GPIOs des ESP32-S3 belegen, wickelt dieser Expander die 3-Wire SPI Initialisierung (SCL, CS, RESET, SDA) sowie die Steuerung der Hintergrundbeleuchtung ab.
 4. **FT63x6 Touch Controller**
-   - Ebenfalls am I2C-Bus angeschlossen, ermöglicht kapazitives Touch auf dem kompletten Display. Das Polling wird asynchron in ESPHome ausgeführt, ohne den SPI-Init-Vorgang des Displays zu blockieren.
+   - Ebenfalls am I2C-Bus angeschlossen (Adresse `0x38`), ermöglicht kapazitives Touch auf dem kompletten Display. Das Polling wird asynchron in ESPHome ausgeführt, ohne den SPI-Init-Vorgang des Displays zu blockieren.
 5. **BME680 Umweltsensor**
-   - Angeschlossen über den standardmäßigen I2C-Bus (SDA: GPIO8, SCL: GPIO18) für genaue Temperatur-, Feuchte- und IAQ-Messungen.
+   - Angeschlossen über den standardmäßigen I2C-Bus (SDA: GPIO8, SCL: GPIO18, Adresse `0x77`) für genaue Temperatur-, Feuchte- und IAQ-Messungen.
    - *Tipp:* Das Qualia-Board besitzt einen **Stemma QT/Qwiic-Anschluss**, sodass der BME680 ganz ohne Löten oder Breadboard direkt per JST-SH Kabel angesteckt werden kann!
 
 ## ⚙️ Wie es mit ESPHome funktioniert (Besonderheiten)
@@ -52,7 +53,10 @@ Die Ansteuerung eines ST7701S RGB-Displays mit einem Adafruit Qualia Board unter
    - Spricht den PCA9554 I2C-Expander an.
    - Emuliert über Software ein 9-Bit SPI-Protokoll, indem SDA, SCL und CS am Expander im Millisekunden-Takt umgeschaltet werden.
    - Sendet die korrekte Sequenz an den ST7701S, noch bevor LVGL die Kontrolle übernimmt.
-3. **LVGL Integration**: Die Benutzeroberfläche ist deklarativ in der `dashboard_ui.yaml` strukturiert und rendert dank Octal-PSRAM mit flüssigen Übergängen. Aktualisierungen der Labels werden sekündlich durch die Interval-Schleife der `dashboard_main.yaml` an die UI-Komponenten gepusht.
+3. **LVGL Integration**: Die Benutzeroberfläche ist deklarativ in der `dashboard_ui.yaml` strukturiert; der Framebuffer liegt im Octal-PSRAM.
+   - **Rotation**: Das Querformat wird mit `rotation: 90` in der **LVGL**-Konfiguration eingestellt, nicht am Display (ESPHome lehnt eine Display-Rotation zusammen mit LVGL ab). LVGL dreht dabei auch die Touch-Koordinaten, deshalb hat der Touchscreen **keine** eigene `transform`. Die Rotation erfolgt in Software; der erste Bildaufbau nach dem Start dauert dadurch etwa eine Sekunde.
+   - **Aktualisierung**: Die Labels werden aus den `on_value`-Triggern der Home-Assistant-Sensoren aktualisiert, nur bei Änderung (`dashboard.h`). Fehlende Werte erscheinen als `--`.
+   - **Schriften**: Roboto mit `bpp: 4` (Kantenglättung) und zusätzlich den deutschen Umlauten, die im Standard-Glyphensatz von ESPHome fehlen. Symbole (Lüfter, Zu-/Abluft, Home Assistant, Anwesenheit) kommen aus den Material Design Icons. Zahlen-Schriften enthalten nur die benötigten Zeichen, um Flash zu sparen.
 
 ## 📂 Ordnerstruktur & Dateien
 
@@ -63,19 +67,48 @@ Die Ansteuerung eines ST7701S RGB-Displays mit einem Adafruit Qualia Board unter
 - `packages/ui_device_card.yaml`, `packages/ui_device_row.yaml` - Widget-Bausteine (Übersichtskarte, Systemzeile) pro Gerät.
 - `dashboard.h` - C++-Helfer für NaN-sichere Formatierung und die Kartenlogik.
 - `qualia_init.h` - Der C++ Code für die 3-Wire SPI Initialisierung des ST7701S via PCA9554 I2C-Expander.
-- `secrets - Example.yaml` - Vorlage für die WLAN- und Passwortkonfigurationen.
+- `secrets_example.yaml` - Vorlage für die WLAN- und Passwortkonfigurationen.
+- `ui/`, `ui_bridge.h` - Entwurf einer UI aus EEZ Studio (noch nicht in die Firmware eingebunden).
 - `docs/` - Datasheets, Timings, Layout-Vorgaben und Python-/Hex-Beispielcodes aus der Entwicklungs- und Prototyping-Phase der Displayansteuerung.
 
 ## 🚀 Setup & Installation
 
-1. Kopiere die Datei `secrets - Example.yaml` zu `secrets.yaml` und trage dort deine WLAN-Zugangsdaten ein.
+Voraussetzung ist **ESPHome 2026.10.0** (dieselbe Version wie in der CI und im VentoSync-Projekt).
+
+1. Kopiere die Datei `secrets_example.yaml` zu `secrets.yaml` und trage dort deine WLAN-Zugangsdaten und den `api_encryption_key` ein.
 2. Trage in der `dashboard_main.yaml` unter `substitutions:` die HA-Entity-Präfixe deiner VentoSync-Geräte ein (`device_1_prefix` … `device_3_prefix`, z. B. `ventosync_dg_buero` für `fan.ventosync_dg_buero_ventosync_hrv`), dazu den Raum-Master (`master_prefix`) und das Gerät mit NTCs/Radar (`wrg_prefix`).
    - *Hinweis:* Neuere VentoSync-Entitäten (Automatik-Status, Klima-Koordination, Radar, Zuluft nach WRG) tragen zusätzlich den Bereichsnamen im Entity-ID-Präfix (z. B. `sensor.arbeitszimmer_ventosync_dg_buero_automatik_status`). Diese Präfixe stehen in `master_area_prefix` bzw. `wrg_area_prefix`.
 3. Schließe das Display per FPC-Flachbandkabel an das Adafruit Qualia Board an und verbinde den BME680 (optional) über den Stemma QT Port.
-4. Kompiliere und installiere die Firmware über USB (damit UART/JTAG korrekt eingebunden wird):
+4. Kompiliere und installiere die Firmware beim ersten Mal über USB. Das ist auch nötig, wenn sich die Partitionstabelle ändert (z. B. beim Wechsel auf das 16-MB-Layout):
 
    ```bash
-   esphome run dashboard_main.yaml
+   esphome run dashboard_main.yaml --device /dev/ttyACM0
+   ```
+
+   *Unter WSL2* muss der USB-Port des Boards zuerst aus Windows durchgereicht werden (einmalig `usbipd bind`, danach nach jedem Anstecken):
+
+   ```powershell
+   usbipd attach --wsl --busid <BUSID>
    ```
 
 5. Nach dem erfolgreichen ersten Flashen können zukünftige Updates einfach via OTA-Update über dein lokales Netzwerk durchgeführt werden.
+6. In Home Assistant das Gerät "WRG Dashboard" über die ESPHome-Integration hinzufügen. Erst danach erhält das Display die Werte der Lüftungsgeräte.
+
+## ➕ Weiteres Gerät hinzufügen
+
+1. In `dashboard_main.yaml` ein weiteres Paket mit eigenem `key` und dem HA-Präfix des Geräts eintragen:
+
+   ```yaml
+   packages:
+     device_4: !include
+       file: packages/ventosync_device.yaml
+       vars: { key: schlafzimmer, prefix: "ventosync_og_schlafzimmer" }
+   ```
+
+2. In `dashboard_ui.yaml` die passende Karte (`packages/ui_device_card.yaml`) und Systemzeile (`packages/ui_device_row.yaml`) mit demselben `key` einfügen und das Layout (x-/y-Positionen) anpassen. Auf der Übersicht ist bei 820 px Breite Platz für drei Karten; für mehr Geräte bietet sich eine weitere Seite an.
+
+## 🩺 Fehlersuche
+
+- **Alle Werte zeigen `--`**: Prüfe, ob das Display in Home Assistant eingebunden ist (Symbol oben rechts türkis statt rot) und ob die Entity-IDs zu den Präfixen in `substitutions:` passen. Das serielle Log (`esphome logs dashboard_main.yaml --device /dev/ttyACM0`) zeigt die empfangenen Zustände.
+- **Raumklima zeigt `--`**: Im Log unter `Results from bus scan` muss der BME680 auf `0x77` erscheinen. Fehlt er, ist der Sensor nicht angeschlossen oder steht auf Adresse `0x76` (dann `address:` unter `bme68x_bsec2_i2c` anpassen).
+- **Konfiguration lässt sich nicht validieren (`rotation` ... not compatible with LVGL)**: Die Rotation gehört in den `lvgl:`-Block, nicht unter `display:`.
