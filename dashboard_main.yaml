@@ -38,6 +38,9 @@ wifi:
     ssid: "${device_name} Hotspot"
     password: !secret appw
 
+# Web page on the fallback hotspot to enter new WiFi credentials
+captive_portal:
+
 api:
   max_connections: 8
   encryption:

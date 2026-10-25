@@ -16,9 +16,9 @@ Die Benutzeroberfläche wurde mit **LVGL (Light and Versatile Graphics Library)*
 
 ## ✨ Features
 
-- **LVGL-Dashboard im Querformat (820 x 320)** für [VentoSync](https://github.com/thomasengeroff-dotcom/ESPHome-Wohnraumlueftung)-Geräte (Tippen auf den Hintergrund wechselt die Seite, nach 60 s ohne Berührung zurück zur Übersicht):
+- **LVGL-Dashboard im Querformat (820 x 320)** für [VentoSync](https://github.com/thomasengeroff-dotcom/ESPHome-Wohnraumlueftung)-Geräte (Tippen auf den Hintergrund wechselt die Seite, nach 60 s ohne Berührung zurück zur ersten Raumseite):
   - **Übersicht pro Raum**: Uhrzeit, Raumname, Modus und Smart-Automatik-Status des Raums (vom jeweiligen Master) sowie je eine Karte pro Lüftungsgerät des Raums (online/aus, Lüfterstufe, Richtung Zuluft/Abluft, Drehzahl, Filter-Betriebstage bzw. Filterwechsel-Alarm). Pro Seite passen drei Geräte; hat ein Raum mehr, bekommt er weitere Seiten („Dachgeschoss 1/2"). Tippen auf den Hintergrund blättert durch alle Raumseiten, danach folgen Wärmerückgewinnung und System. **Tippen auf eine Karte öffnet die Detailseite des Geräts.**
-  - **Detailseite**: aktuelle Werte des Geräts (Gerät/Phase, WLAN, Firmware), ein **24-h-Verlauf** wie im VentoSync-Web-Dashboard (Reiter *Lüftung*: Stufe, Bedarf, CO2; Reiter *Temperaturen*: Außenluft, Zuluft nach WRG, Abluft, WRG-Wirkungsgrad, nur bei Geräten mit NTCs) und die **Bedienung**:
+  - **Detailseite**: aktuelle Werte des Geräts (Raum, Gerät/Phase, WLAN, Firmware), ein **24-h-Verlauf** wie im VentoSync-Web-Dashboard (Reiter *Lüftung*: Stufe, Bedarf, CO2; Reiter *Temperaturen*: Außenluft, Zuluft nach WRG, Abluft, WRG-Wirkungsgrad, nur bei Geräten mit NTCs) und die **Bedienung**:
     - **Modus** (Automatik, WRG, Durchlüften, Stoßlüften, Aus) und **Lüfterstufe** (−/+) gelten für den ganzen Raum des Geräts und werden über Home Assistant an den Master dieses Raums geschickt; VentoSync gleicht die übrigen Geräte des Raums per ESP-NOW an.
     - In Smart-Automatik startet eine Stufenänderung die raumweite Übersteuerung (wie die Stufen-Taste am Gerät, Dauer laut *Smart-Automatik: Übersteuerung Dauer*); die Restzeit steht dann über den −/+-Knöpfen.
     - Mehrere schnelle Tipps auf −/+ werden zu einer Änderung zusammengefasst.
@@ -88,14 +88,15 @@ Die Ansteuerung eines ST7701S RGB-Displays mit einem Adafruit Qualia Board unter
    - **Farben & Kontrast**: Das Panel stellt dunkle Grautöne deutlich heller und bläulich dar. Ein Farbtest (je Kanal 0 bis 255 in Bitstufen) zeigt das Verhalten: Werte bis 16 sind von Schwarz nicht zu unterscheiden, Schwarz selbst ist blaugrau, ab 128 ist ein Kanal nahezu gesättigt – und zwar in allen Kanälen gleich, also keine fehlerhafte Datenleitung, sondern die Kennlinie des Panels. Die Init-Sequenz entspricht exakt Adafruits Referenz für das TL032FWV01, die Hintergrundbeleuchtung ist nur ein-/ausschaltbar. Deshalb: echtes Schwarz als Hintergrund, Karten ohne Rahmen, reines Weiß für Text, keine Information in dunklen Tönen.
 
      ![Farbtest: Rot, Grün, Blau und Grau in Stufen von 0 bis 255](docs/screenshots/colortest.webp)
- Textfarbe und Schrift werden an den Containern (Seite, Karte, Knopf) gesetzt und von den Labels geerbt – ein `theme: label` würde die Schrift und die dunkle Schrift aktiver Knöpfe überschreiben.
-- **Schriften**: Roboto mit `bpp: 4` (Kantenglättung) und zusätzlich den deutschen Umlauten, die im Standard-Glyphensatz von ESPHome fehlen. Symbole (Lüfter, Zu-/Abluft, Home Assistant, Anwesenheit) kommen aus den Material Design Icons. Zahlen-Schriften enthalten nur die benötigten Zeichen, um Flash zu sparen.
+
+   - **Textstil**: Textfarbe und Schrift werden an den Containern (Seite, Karte, Knopf) gesetzt und von den Labels geerbt – ein `theme: label` würde die Schrift und die dunkle Schrift aktiver Knöpfe überschreiben.
+   - **Schriften**: Roboto mit `bpp: 4` (Kantenglättung) und zusätzlich den deutschen Umlauten, die im Standard-Glyphensatz von ESPHome fehlen. Symbole (Lüfter, Zu-/Abluft, Home Assistant, Anwesenheit) kommen aus den Material Design Icons. Zahlen-Schriften enthalten nur die benötigten Zeichen, um Flash zu sparen.
 
 ## 📂 Ordnerstruktur & Dateien
 
 - `README.md` - Diese Dokumentation.
-- `dashboard_main.yaml` - Die ESPHome Hauptkonfiguration (Board-Settings, WLAN, I2C, Sensoren, Display-Definition, OTA, Time).
-- `dashboard_ui.yaml` - Die reine LVGL Benutzeroberfläche (Seiten `page_main`, `page_wrg`, `page_system`, Fonts, Styles).
+- `dashboard_main.yaml` - Die ESPHome Hauptkonfiguration (Board-Settings, WLAN, I2C, Sensoren, Display-Definition, OTA, Time, Skripte) und unter `packages:` die Räume und Geräte.
+- `dashboard_ui.yaml` - Die LVGL Benutzeroberfläche (Seiten `page_main`, `page_wrg`, `page_system`, dazu `page_detail` aus `packages/ui_page_detail.yaml`, Fonts, Styles).
 - `packages/ventosync_room.yaml` - Home-Assistant-Entitäten eines VentoSync-Raums (Modus, Stufe, Automatik vom Raum-Master), einmal pro Raum.
 - `packages/ventosync_device.yaml` - Home-Assistant-Entitäten eines VentoSync-Geräts, einmal pro Gerät.
 - `packages/ui_device_card.yaml` - Kartenplatz der Übersicht (drei Stück), wird zur Laufzeit mit den Geräten der aktuellen Raumseite gefüllt.
@@ -113,7 +114,7 @@ Die Ansteuerung eines ST7701S RGB-Displays mit einem Adafruit Qualia Board unter
 
 Voraussetzung ist **ESPHome 2026.10.0** (dieselbe Version wie in der CI und im VentoSync-Projekt).
 
-1. Kopiere die Datei `secrets_example.yaml` zu `secrets.yaml` und trage dort deine WLAN-Zugangsdaten und den `api_encryption_key` ein.
+1. Kopiere die Datei `secrets_example.yaml` zu `secrets.yaml` und trage dort deine WLAN-Zugangsdaten und einen eigenen `api_encryption_key` ein (erzeugen z. B. mit `openssl rand -base64 32`; der Platzhalter in der Vorlage ist nur für die CI gedacht).
 2. Trage in der `dashboard_main.yaml` unter `packages:` deine Räume und VentoSync-Geräte ein (siehe [Räume und Geräte hinzufügen](#-räume-und-geräte-hinzufügen)) und unter `substitutions:` das Gerät mit NTCs/Radar für die Seite Wärmerückgewinnung (`wrg_prefix`, `wrg_area_prefix`).
    - *Hinweis:* Neuere VentoSync-Entitäten (Automatik-Status, Klima-Koordination, Radar, Zuluft nach WRG) tragen zusätzlich den Bereichsnamen im Entity-ID-Präfix (z. B. `sensor.arbeitszimmer_ventosync_dg_buero_automatik_status`). Diese Präfixe stehen in `master_area_prefix` bzw. `wrg_area_prefix`.
 3. Schließe das Display per FPC-Flachbandkabel an das Adafruit Qualia Board an und verbinde den BME680 (optional) über den Stemma QT Port.
@@ -163,3 +164,7 @@ packages:
 - **Detailseite zeigt „Verlauf nicht erreichbar"**: Das Display holt den Verlauf über die IP-Adresse aus `sensor.<prefix>_ip_adresse`. Das Web-Dashboard des Lüftungsgeräts muss im Netz erreichbar sein (`http://<IP>/history` im Browser testen).
 - **Modus/Stufe lassen sich nicht ändern**: Option „Dem Gerät erlauben, Home-Assistant-Aktionen auszuführen" in der ESPHome-Integration prüfen (siehe Setup, Schritt 7).
 - **Konfiguration lässt sich nicht validieren (`rotation` ... not compatible with LVGL)**: Die Rotation gehört in den `lvgl:`-Block, nicht unter `display:`.
+
+## 📄 Lizenz
+
+GNU General Public License v3.0 – siehe [LICENSE](LICENSE).
