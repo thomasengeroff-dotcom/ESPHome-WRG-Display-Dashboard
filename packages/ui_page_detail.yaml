@@ -2,7 +2,7 @@
 #   top:    back button, unit name, device / Wi-Fi / firmware
 #   left:   current values (same logic as the overview card, dash::refresh_card)
 #   right:  24 h chart from the unit's GET /history (dash::render_chart)
-#   bottom: room mode and room level; sent to the room master, VentoSync syncs the room
+#   bottom: mode and level of the unit's room; sent to that room's master, VentoSync syncs the room
 id: page_detail
 skip: true
 bg_color: 0x000000
@@ -256,9 +256,10 @@ widgets:
             scrollable: false
             widgets:
               - label:
+                  id: detail_mode_caption
                   x: 2
                   y: -2
-                  text: "Modus · ganzer Raum"
+                  text: "Modus"
                   text_font: font_18
                   text_color: 0xA9B4C0
               - button:
@@ -349,7 +350,7 @@ widgets:
                   y: -2
                   width: 228
                   long_mode: DOT
-                  text: "Stufe · ganzer Raum"
+                  text: "Stufe"
                   text_font: font_18
                   text_color: 0xA9B4C0
               - button:

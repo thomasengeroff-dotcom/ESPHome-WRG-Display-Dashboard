@@ -1,68 +1,67 @@
 # ---------------------------------------------------------
 # One VentoSync ventilation unit, imported from Home Assistant.
 # Included once per device from dashboard_main.yaml with:
-#   index:  position in dash::devices (0, 1, 2, ...; also the card's index)
+#   index:  position in dash::devices (0, 1, 2, ...)
+#   room:   index of its room (packages/ventosync_room.yaml)
 #   key:    short id prefix for this file's ids (e.g. "buero")
 #   title:  name shown on the display (e.g. "Büro")
 #   prefix: HA entity prefix of the device (e.g. "ventosync_dg_buero")
-# The matching card/system-row widgets come from packages/ui_device_card.yaml
-# and packages/ui_device_row.yaml (same "key").
+# The overview cards, page_detail and the system table read the registry
+# (dash::devices), so the unit has no widgets of its own.
 # ---------------------------------------------------------
 
+esphome:
+  on_boot:
+    - priority: -100
+      then:
+        - lambda: |-
+            auto &d = dash::devices[${index}];
+            d.title = "${title}";
+            d.room = ${room};
+            d.fan = id(${key}_fan);
+            d.direction = id(${key}_direction);
+            d.version = id(${key}_version);
+            d.config = id(${key}_config);
+            d.ip = id(${key}_ip);
+            d.level = id(${key}_level);
+            d.rpm = id(${key}_rpm);
+            d.filter_days = id(${key}_filter_days);
+            d.wifi = id(${key}_wifi);
+            d.filter_alarm = id(${key}_filter_alarm);
+
 script:
-  - id: ${key}_refresh
+  - id: ${key}_changed
     mode: restart
     then:
-      - lambda: |-
-          // Register for page_detail (an on_boot here would be replaced by the main config's on_boot)
-          auto &d = dash::devices[${index}];
-          d.title = "${title}";
-          d.fan = id(${key}_fan);
-          d.direction = id(${key}_direction);
-          d.version = id(${key}_version);
-          d.config = id(${key}_config);
-          d.ip = id(${key}_ip);
-          d.level = id(${key}_level);
-          d.rpm = id(${key}_rpm);
-          d.filter_days = id(${key}_filter_days);
-          d.wifi = id(${key}_wifi);
-          d.filter_alarm = id(${key}_filter_alarm);
+      - script.execute: refresh_overview
+      - script.execute: refresh_system
       - if:
           condition:
             lambda: 'return dash::detail_open && dash::selected == ${index};'
           then:
             - script.execute: refresh_detail
-      - lambda: |-
-          dash::refresh_card(
-              {dash::obj(id(${key}_lbl_status)), dash::obj(id(${key}_lbl_name)), dash::obj(id(${key}_lbl_level)),
-               dash::obj(id(${key}_lbl_level_max)), dash::obj(id(${key}_lbl_dir_icon)), dash::obj(id(${key}_lbl_dir)),
-               dash::obj(id(${key}_lbl_rpm)), dash::obj(id(${key}_lbl_filter))},
-              id(${key}_fan).state, id(${key}_level).state, id(${key}_direction).state,
-              id(${key}_rpm).state, id(${key}_filter_days).state, id(${key}_filter_alarm).state);
 
 text_sensor:
   - platform: homeassistant
     id: ${key}_fan
     entity_id: fan.${prefix}_ventosync_hrv
     on_value:
-      - script.execute: ${key}_refresh
+      - script.execute: ${key}_changed
   - platform: homeassistant
     id: ${key}_direction
     entity_id: sensor.${prefix}_lufter_richtung
     on_value:
-      - script.execute: ${key}_refresh
+      - script.execute: ${key}_changed
   - platform: homeassistant
     id: ${key}_version
     entity_id: sensor.${prefix}_projektversion
     on_value:
-      - lambda: 'dash::set_text(id(${key}_sys_version), dash::text_or(x));'
-      - script.execute: ${key}_refresh
+      - script.execute: ${key}_changed
   - platform: homeassistant
     id: ${key}_config
     entity_id: sensor.${prefix}_gerate_konfiguration
     on_value:
-      - lambda: 'dash::set_text(id(${key}_sys_config), dash::short_config(x));'
-      - script.execute: ${key}_refresh
+      - script.execute: ${key}_changed
   # Used to fetch the unit's 24 h history from its web dashboard
   - platform: homeassistant
     id: ${key}_ip
@@ -73,23 +72,22 @@ sensor:
     id: ${key}_level
     entity_id: number.${prefix}_lufter_intensitat
     on_value:
-      - script.execute: ${key}_refresh
+      - script.execute: ${key}_changed
   - platform: homeassistant
     id: ${key}_rpm
     entity_id: sensor.${prefix}_lufter_drehzahl
     on_value:
-      - script.execute: ${key}_refresh
+      - script.execute: ${key}_changed
   - platform: homeassistant
     id: ${key}_filter_days
     entity_id: sensor.${prefix}_filter_betriebstage
     on_value:
-      - script.execute: ${key}_refresh
+      - script.execute: ${key}_changed
   - platform: homeassistant
     id: ${key}_wifi
     entity_id: sensor.${prefix}_wlan_signal
     on_value:
-      - lambda: 'dash::set_text(id(${key}_sys_wifi), dash::num(x, "%.0f dBm"));'
-      - script.execute: ${key}_refresh
+      - script.execute: ${key}_changed
 
 binary_sensor:
   - platform: homeassistant
@@ -98,4 +96,4 @@ binary_sensor:
     # Without this the first state from HA does not fire on_state
     trigger_on_initial_state: true
     on_state:
-      - script.execute: ${key}_refresh
+      - script.execute: ${key}_changed

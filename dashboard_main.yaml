@@ -1,14 +1,7 @@
 substitutions:
   device_name: "wrg-dashboard"
   friendly_name: "WRG Dashboard"
-  # HA entity prefixes of the VentoSync units shown on the cards
-  # (entity ids are e.g. fan.<prefix>_ventosync_hrv, number.<prefix>_lufter_intensitat).
-  device_1_prefix: "ventosync_dg_buero"
-  device_2_prefix: "ventosync_dg_flur"
-  device_3_prefix: "ventosync_dg_wohnraum"
-  # Room master (device ID 1): room mode and Smart-Automatik status
-  master_prefix: "ventosync_dg_buero"
-  master_area_prefix: "arbeitszimmer_ventosync_dg_buero"
+  # Rooms and units are configured under "packages:" at the end of this file.
   # Unit with NTCs and radar for the Wärmerückgewinnung page
   wrg_prefix: "ventosync_dg_wohnraum"
   wrg_area_prefix: "dachgeschoss_wohnraum_ventosync_dg_wohnraum"
@@ -89,20 +82,26 @@ esphome:
   includes:
     - qualia_init.h
     - dashboard.h
+    - dashboard_rooms.h
     - dashboard_detail.h
   build_flags:
     # lv_chart for the 24 h history on page_detail (not exposed as an ESPHome widget)
     - -DLV_USE_CHART=1
 
+  # A list, so the on_boot entries of the room / unit packages are added, not replaced
   on_boot:
-    priority: 800
-    then:
-      - lambda: |-
-          auto my_init = new esphome::qualia::QualiaDisplayInit();
-          // Set the I2C ID and the correct address for the Qualia PCA9554
-          my_init->set_i2c_bus(id(i2c_bus));
-          my_init->set_i2c_address(0x3F);
-          my_init->setup();
+    - priority: 800
+      then:
+        - lambda: |-
+            auto my_init = new esphome::qualia::QualiaDisplayInit();
+            // Set the I2C ID and the correct address for the Qualia PCA9554
+            my_init->set_i2c_bus(id(i2c_bus));
+            my_init->set_i2c_address(0x3F);
+            my_init->setup();
+    - priority: -200
+      then:
+        - script.execute: refresh_overview
+        - script.execute: refresh_system
 
 bme68x_bsec2_i2c:
   address: 0x77 # Adafruit BME680 Standard
@@ -132,24 +131,6 @@ sensor:
       on_value:
         - script.execute: refresh_local
 
-  # --- Room controls (room master) ---
-  - platform: homeassistant
-    id: ha_room_level
-    entity_id: number.${master_prefix}_lufter_intensitat
-    on_value:
-      - lambda: 'if (id(pending_level) == (int) x) id(pending_level) = 0;'
-      - script.execute: refresh_controls
-  - platform: homeassistant
-    id: ha_override_remaining
-    entity_id: sensor.${master_area_prefix}_automatik_ubersteuerung_restzeit
-    on_value:
-      - script.execute: refresh_controls
-  - platform: homeassistant
-    id: ha_override_duration
-    entity_id: number.${master_area_prefix}_smart_automatik_ubersteuerung_dauer
-    on_value:
-      - script.execute: refresh_controls
-
   # --- Wärmerückgewinnung (unit with NTCs) ---
   - platform: homeassistant
     id: ha_wrg_outdoor
@@ -173,28 +154,17 @@ sensor:
       - lambda: 'dash::set_text(id(label_wrg_efficiency), dash::num(x, "%.0f %%"));'
 
 # ---------------------------------------------------------
-# Home Assistant: room-wide states (from the room master)
+# Home Assistant: room inputs of the Wärmerückgewinnung unit
 # ---------------------------------------------------------
 text_sensor:
   - platform: homeassistant
-    id: ha_room_mode
-    entity_id: select.${master_prefix}_luftermodus
-    on_value:
-      - lambda: 'dash::set_text(id(label_mode), dash::text_or(x));'
-      - script.execute: refresh_controls
-  - platform: homeassistant
-    id: ha_auto_status
-    entity_id: sensor.${master_area_prefix}_automatik_status
-    on_value:
-      - lambda: 'dash::set_text(id(label_auto_status), dash::ascii_arrows(dash::text_or(x)));'
-  - platform: homeassistant
     id: ha_climate_coord
-    entity_id: sensor.${master_area_prefix}_klima_koordination_status
+    entity_id: sensor.${wrg_area_prefix}_klima_koordination_status
     on_value:
       - lambda: 'dash::set_text(id(label_climate_coord), dash::text_or(x));'
   - platform: homeassistant
     id: ha_window_lock
-    entity_id: sensor.${master_prefix}_fenstersperre_aktiv
+    entity_id: sensor.${wrg_prefix}_fenstersperre_aktiv
     on_value:
       - lambda: 'dash::set_text(id(label_window_lock), dash::text_or(x));'
 
@@ -215,8 +185,46 @@ globals:
   - id: pending_level
     type: int
     initial_value: "0"
+  # HA entities of the room master of the unit on page_detail (set by open_detail).
+  # Globals, because homeassistant.action lambdas are generated before the includes.
+  - id: ctl_mode_entity
+    type: std::string
+  - id: ctl_level_entity
+    type: std::string
 
 script:
+  # ---------------- Overview / system ----------------
+  - id: refresh_overview
+    then:
+      - lambda: |-
+          dash::OverviewUi ui{};
+          lv_obj_t *cards[3] = {dash::obj(id(slot0_card)), dash::obj(id(slot1_card)), dash::obj(id(slot2_card))};
+          const dash::CardLabels labels[3] = {
+              {dash::obj(id(slot0_lbl_status)), dash::obj(id(slot0_lbl_name)), dash::obj(id(slot0_lbl_level)),
+               dash::obj(id(slot0_lbl_level_max)), dash::obj(id(slot0_lbl_dir_icon)), dash::obj(id(slot0_lbl_dir)),
+               dash::obj(id(slot0_lbl_rpm)), dash::obj(id(slot0_lbl_filter))},
+              {dash::obj(id(slot1_lbl_status)), dash::obj(id(slot1_lbl_name)), dash::obj(id(slot1_lbl_level)),
+               dash::obj(id(slot1_lbl_level_max)), dash::obj(id(slot1_lbl_dir_icon)), dash::obj(id(slot1_lbl_dir)),
+               dash::obj(id(slot1_lbl_rpm)), dash::obj(id(slot1_lbl_filter))},
+              {dash::obj(id(slot2_lbl_status)), dash::obj(id(slot2_lbl_name)), dash::obj(id(slot2_lbl_level)),
+               dash::obj(id(slot2_lbl_level_max)), dash::obj(id(slot2_lbl_dir_icon)), dash::obj(id(slot2_lbl_dir)),
+               dash::obj(id(slot2_lbl_rpm)), dash::obj(id(slot2_lbl_filter))}};
+          for (int i = 0; i < 3; i++) {
+            ui.card[i] = cards[i];
+            ui.labels[i] = labels[i];
+          }
+          ui.room_title = dash::obj(id(label_room));
+          ui.room_page = dash::obj(id(label_room_page));
+          ui.mode = dash::obj(id(label_mode));
+          ui.auto_status = dash::obj(id(label_auto_status));
+          ui.counter[0] = dash::obj(id(label_counter_main));
+          ui.counter[1] = dash::obj(id(label_counter_wrg));
+          ui.counter[2] = dash::obj(id(label_counter_system));
+          dash::refresh_overview(ui);
+  - id: refresh_system
+    then:
+      - lambda: 'dash::refresh_system_table(id(system_table)->obj);'
+
   # ---------------- Detail page ----------------
   - id: open_detail
     then:
@@ -224,6 +232,12 @@ script:
           dash::detail_open = true;
           if (dash::history.device != dash::selected)
             dash::history.state = dash::HistoryState::EMPTY;
+          // Mode / level go to the master of this unit's room
+          const dash::Room *room = dash::room_of(dash::current());
+          const std::string master = room != nullptr ? room->master_prefix : "";
+          id(ctl_mode_entity) = "select." + master + "_luftermodus";
+          id(ctl_level_entity) = "number." + master + "_lufter_intensitat";
+          id(pending_level) = 0;
       - script.execute: refresh_detail
       - script.execute: refresh_controls
       - script.execute: refresh_chart
@@ -290,7 +304,12 @@ script:
   - id: refresh_controls
     then:
       - lambda: |-
-          const int mode = dash::mode_index(id(ha_room_mode).state);
+          const dash::Room *room = dash::room_of(dash::current());
+          if (room == nullptr || room->mode == nullptr)
+            return;
+          const std::string room_name = room->title;
+          dash::set_text(id(detail_mode_caption), "Modus · Raum " + room_name);
+          const int mode = dash::mode_index(room->mode->state);
           lv_obj_t *buttons[5] = {dash::obj(id(detail_mode_0)), dash::obj(id(detail_mode_1)),
                                   dash::obj(id(detail_mode_2)), dash::obj(id(detail_mode_3)),
                                   dash::obj(id(detail_mode_4))};
@@ -298,16 +317,16 @@ script:
             dash::set_checked(buttons[i], i == mode);
 
           const bool pending = id(pending_level) > 0;
-          const float level = pending ? id(pending_level) : id(ha_room_level).state;
+          const float level = pending ? id(pending_level) : room->level->state;
           dash::set_text(id(detail_ctl_level), dash::num(level, "%.0f"));
           dash::set_color(id(detail_ctl_level), pending ? dash::COL_ACCENT : dash::COL_TEXT);
           // In Smart-Automatik a level starts the room-wide override (VentoSync level button)
-          const float remaining = id(ha_override_remaining).state;
-          std::string caption = "Stufe · ganzer Raum";
+          const float remaining = room->override_remaining->state;
+          std::string caption = "Stufe · Raum " + room_name;
           if (remaining > 0)
             caption = "Übersteuert · noch " + dash::num(remaining, "%.0f") + " min";
           else if (mode == 0)
-            caption = "+/- übersteuert " + dash::num(id(ha_override_duration).state, "%.0f") + " min";
+            caption = "+/- übersteuert " + dash::num(room->override_duration->state, "%.0f") + " min";
           dash::set_text(id(detail_ctl_caption), caption);
           dash::set_color(id(detail_ctl_caption), remaining > 0 ? dash::COL_ACCENT : dash::COL_MUTED);
   - id: send_mode
@@ -325,7 +344,7 @@ script:
       - homeassistant.action:
           action: select.select_option
           data:
-            entity_id: select.${master_prefix}_luftermodus
+            entity_id: !lambda 'return id(ctl_mode_entity);'
             # Same order as dash::MODES (this lambda is generated before the includes)
             option: !lambda |-
               static const char *const MODES[5] = {"Smart-Automatik", "Wärmerückgewinnung", "Durchlüften",
@@ -339,7 +358,8 @@ script:
       delta: int
     then:
       - lambda: |-
-          const float current = id(ha_room_level).state;
+          const dash::Room *room = dash::room_of(dash::current());
+          const float current = room != nullptr && room->level != nullptr ? room->level->state : NAN;
           int base = id(pending_level) > 0 ? id(pending_level) : (std::isnan(current) ? 1 : (int) current);
           id(pending_level) = std::max(1, std::min(10, base + delta));
       - script.execute: refresh_controls
@@ -352,7 +372,7 @@ script:
       - homeassistant.action:
           action: number.set_value
           data:
-            entity_id: number.${master_prefix}_lufter_intensitat
+            entity_id: !lambda 'return id(ctl_level_entity);'
             value: !lambda 'return esphome::to_string(id(pending_level));'
       - delay: 4s
       - lambda: 'id(pending_level) = 0;'
@@ -424,17 +444,36 @@ touchscreen:
     # ESPHome will poll the touch controller over I2C, avoiding any I2C bus contention 
     # with the custom qualia_init.h C++ display initialization routine.
 
+# ---------------------------------------------------------
+# Rooms and units
+# ---------------------------------------------------------
+# room:   one VentoSync room (ESP-NOW group) with its master (device ID 1); the first
+#         room is the display's home page.
+# device: one unit; "room" refers to the room's index. The overview shows the units
+#         room by room, 3 per page.
+# Entity prefixes: fan.<prefix>_ventosync_hrv etc.; newer VentoSync entities also carry
+# the HA area ("master_area_prefix").
 packages:
   ui: !include dashboard_ui.yaml
+
+  room_1: !include
+    file: packages/ventosync_room.yaml
+    vars:
+      room: 0
+      key: room_dg
+      title: "Dachgeschoss"
+      master_prefix: "ventosync_dg_buero"
+      master_area_prefix: "arbeitszimmer_ventosync_dg_buero"
+
   device_1: !include
     file: packages/ventosync_device.yaml
-    vars: { index: 0, key: buero, title: "Büro", prefix: "${device_1_prefix}" }
+    vars: { index: 0, room: 0, key: buero, title: "Büro", prefix: "ventosync_dg_buero" }
   device_2: !include
     file: packages/ventosync_device.yaml
-    vars: { index: 1, key: flur, title: "Flur", prefix: "${device_2_prefix}" }
+    vars: { index: 1, room: 0, key: flur, title: "Flur", prefix: "ventosync_dg_flur" }
   device_3: !include
     file: packages/ventosync_device.yaml
-    vars: { index: 2, key: wohnraum, title: "Wohnraum", prefix: "${device_3_prefix}" }
+    vars: { index: 2, room: 0, key: wohnraum, title: "Wohnraum", prefix: "ventosync_dg_wohnraum" }
 
 # HA connection indicator in the header (values freeze while disconnected)
 interval:

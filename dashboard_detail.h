@@ -1,6 +1,6 @@
 #pragma once
 
-// Detail page of one ventilation unit: device registry, the 24 h history
+// Detail page of one ventilation unit: the 24 h history
 // fetched from the unit's own web dashboard (GET http://<ip>/history, see
 // VentoSync components/ventilation_logic/history.h) and the LVGL chart.
 
@@ -10,48 +10,9 @@
 #include <vector>
 #include "esphome.h"
 #include "dashboard.h"
+#include "dashboard_rooms.h"
 
 namespace dash {
-
-// ---------------------------------------------------------------------------
-// Device registry (filled by packages/ventosync_device.yaml at boot)
-// ---------------------------------------------------------------------------
-struct Device {
-  const char *title = "";
-  esphome::text_sensor::TextSensor *fan = nullptr;
-  esphome::text_sensor::TextSensor *direction = nullptr;
-  esphome::text_sensor::TextSensor *version = nullptr;
-  esphome::text_sensor::TextSensor *config = nullptr;
-  esphome::text_sensor::TextSensor *ip = nullptr;
-  esphome::sensor::Sensor *level = nullptr;
-  esphome::sensor::Sensor *rpm = nullptr;
-  esphome::sensor::Sensor *filter_days = nullptr;
-  esphome::sensor::Sensor *wifi = nullptr;
-  esphome::binary_sensor::BinarySensor *filter_alarm = nullptr;
-};
-
-static const int MAX_DEVICES = 6;
-inline std::array<Device, MAX_DEVICES> devices;
-inline int selected = 0;         // device shown on page_detail
-inline bool detail_open = false;  // page_detail is on screen (history auto refresh)
-
-inline Device &current() { return devices[selected]; }
-
-// "Floor: 1 | Room: 1 | Device: 3 | Phase: A" -> "Gerät 3 · Phase A"
-inline std::string short_config(const std::string &cfg) {
-  const size_t dev = cfg.find("Device: ");
-  const size_t phase = cfg.find("Phase: ");
-  if (dev == std::string::npos || phase == std::string::npos)
-    return text_or(cfg);
-  const size_t dev_end = cfg.find(' ', dev + 8);
-  return "Gerät " + cfg.substr(dev + 8, dev_end - dev - 8) + " · Phase " + cfg.substr(phase + 7, 1);
-}
-
-inline std::string device_info(const Device &d) {
-  if (d.config == nullptr)
-    return "";
-  return short_config(d.config->state) + " · " + num(d.wifi->state, "%.0f dBm") + " · v" + text_or(d.version->state);
-}
 
 // ---------------------------------------------------------------------------
 // 24 h history

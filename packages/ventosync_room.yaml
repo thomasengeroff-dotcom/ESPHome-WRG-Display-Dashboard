@@ -1,0 +1,66 @@
+# ---------------------------------------------------------
+# One VentoSync room (ESP-NOW group), imported from Home Assistant.
+# Mode, level and Smart-Automatik are room-wide: they are read from and sent to
+# the room master (VentoSync device ID 1). Included once per room from
+# dashboard_main.yaml with:
+#   room:               position in dash::rooms (0, 1, ...; units refer to it)
+#   key:                short id prefix for this file's ids (e.g. "dg")
+#   title:              room name shown on the display (e.g. "Dachgeschoss")
+#   master_prefix:      HA entity prefix of the master (e.g. "ventosync_dg_buero")
+#   master_area_prefix: prefix of the master's newer, area-prefixed entities
+#                       (e.g. "arbeitszimmer_ventosync_dg_buero")
+# ---------------------------------------------------------
+
+esphome:
+  on_boot:
+    - priority: -100
+      then:
+        - lambda: |-
+            auto &r = dash::rooms[${room}];
+            r.title = "${title}";
+            r.master_prefix = "${master_prefix}";
+            r.mode = id(${key}_mode);
+            r.auto_status = id(${key}_auto_status);
+            r.level = id(${key}_level);
+            r.override_remaining = id(${key}_override_remaining);
+            r.override_duration = id(${key}_override_duration);
+
+script:
+  - id: ${key}_changed
+    mode: restart
+    then:
+      - script.execute: refresh_overview
+      - script.execute: refresh_controls
+
+text_sensor:
+  - platform: homeassistant
+    id: ${key}_mode
+    entity_id: select.${master_prefix}_luftermodus
+    on_value:
+      - script.execute: ${key}_changed
+  - platform: homeassistant
+    id: ${key}_auto_status
+    entity_id: sensor.${master_area_prefix}_automatik_status
+    on_value:
+      - script.execute: ${key}_changed
+
+sensor:
+  - platform: homeassistant
+    id: ${key}_level
+    entity_id: number.${master_prefix}_lufter_intensitat
+    on_value:
+      # A tapped level is confirmed once the master of the open unit's room reports it
+      - lambda: |-
+          if (dash::current().room == ${room} && id(pending_level) == (int) x)
+            id(pending_level) = 0;
+      - script.execute: ${key}_changed
+  - platform: homeassistant
+    id: ${key}_override_remaining
+    entity_id: sensor.${master_area_prefix}_automatik_ubersteuerung_restzeit
+    on_value:
+      - script.execute: ${key}_changed
+  - platform: homeassistant
+    id: ${key}_override_duration
+    entity_id: number.${master_area_prefix}_smart_automatik_ubersteuerung_dauer
+    on_value:
+      - script.execute: ${key}_changed
