@@ -51,6 +51,7 @@ wifi:
     password: !secret appw
 
 api:
+  max_connections: 8
   encryption:
     key: !secret api_encryption_key
 
@@ -312,3 +313,5 @@ interval:
           text:
             format: "Filter:\n%s"
             args: ['id(ha_filter_alarm).state ? "WECHSELN!" : "OK"']
+
+safe_mode:
